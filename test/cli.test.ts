@@ -38,7 +38,7 @@ test("registers a product, stores traceable feedback, and retrieves it after res
   try {
     const registration = run(dataDirectory, {
       action: "register-product",
-      product: { id: "atlas", name: "Atlas", ownerId: "owner-atlas" },
+      product: { id: "atlas", name: "Atlas" },
     });
     assert.deepEqual(registration, {
       product: { id: "atlas", name: "Atlas", ownerId: "owner-atlas", configuration: {} },
@@ -49,7 +49,7 @@ test("registers a product, stores traceable feedback, and retrieves it after res
       productId: "atlas",
       customerId: "customer-42",
       text: "Please let me export a CSV.",
-      source: "intercom://conversation/987",
+      source: "intercom:conversation:987",
       receivedAt: "2026-10-04T10:00:00.000Z",
     };
     const submission = run(dataDirectory, {
@@ -58,7 +58,7 @@ test("registers a product, stores traceable feedback, and retrieves it after res
         productId: "atlas",
         customerId: "customer-42",
         text: "Please let me export a CSV.",
-        source: "intercom://conversation/987",
+        source: "intercom:conversation:987",
         receivedAt: "2026-10-04T10:00:00.000Z",
       },
     });
@@ -82,21 +82,20 @@ test("reports incomplete build configuration and keeps feedback isolated by prod
       product: {
         id: "atlas",
         name: "Atlas",
-        ownerId: "owner-atlas",
         configuration: { goals: ["Increase exports"] },
       },
     });
     run(dataDirectory, {
       action: "register-product",
-      product: { id: "beacon", name: "Beacon", ownerId: "owner-beacon" },
-    });
+      product: { id: "beacon", name: "Beacon" },
+    }, "owner-beacon");
     run(dataDirectory, {
       action: "submit-feedback",
       feedback: {
         productId: "beacon",
         customerId: "customer-7",
         text: "Add a dark theme.",
-        source: "email://thread/7",
+        source: "email:thread:7",
         receivedAt: "2026-10-04T11:00:00.000Z",
       },
     });
@@ -131,7 +130,6 @@ test("rejects credential-bearing configuration, empty integrations, and another 
         product: {
           id: "unsafe",
           name: "Unsafe",
-          ownerId: "owner-unsafe",
           configuration: { integrations: { apiToken: "secret" } },
         },
       }),
@@ -143,7 +141,6 @@ test("rejects credential-bearing configuration, empty integrations, and another 
       product: {
         id: "atlas",
         name: "Atlas",
-        ownerId: "owner-atlas",
         configuration: {
           goals: ["Increase exports"],
           integrations: {},
@@ -173,11 +170,24 @@ test("rejects credential-bearing configuration, empty integrations, and another 
           productId: "atlas",
           customerId: "customer-9",
           text: "A request with an apiToken should not persist.",
-          source: "email://thread/9",
+          source: "email:thread:9",
           receivedAt: "2026-10-04T12:00:00.000Z",
         },
       }),
       /Credentials must stay outside feedback/,
+    );
+    assert.match(
+      runFailure(dataDirectory, {
+        action: "submit-feedback",
+        feedback: {
+          productId: "atlas",
+          customerId: "customer-10",
+          text: "Please add this.",
+          source: "https://example.com/ticket?access_token=secret",
+          receivedAt: "2026-10-04T12:01:00.000Z",
+        },
+      }),
+      /credential-free source reference/,
     );
   } finally {
     rmSync(dataDirectory, { recursive: true, force: true });

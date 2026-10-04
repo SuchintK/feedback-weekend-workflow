@@ -53,10 +53,10 @@ export class Workflow {
     this.#filePath = join(dataDirectory, "workflow.json");
   }
 
-  registerProduct(input: { id: string; name: string; ownerId: string; configuration?: ProductConfiguration }): Product {
+  registerProduct(input: { id: string; name: string; configuration?: ProductConfiguration }, ownerId: string): Product {
     requireText(input.id, "product id");
     requireText(input.name, "product name");
-    requireText(input.ownerId, "product owner id");
+    requireText(ownerId, "product owner id");
     rejectCredentials(input.configuration);
 
     const data = this.read();
@@ -67,7 +67,7 @@ export class Workflow {
     const product: Product = {
       id: input.id,
       name: input.name,
-      ownerId: input.ownerId,
+      ownerId,
       configuration: input.configuration ?? {},
     };
     data.products.push(product);
@@ -82,7 +82,7 @@ export class Workflow {
     requireText(input.source, "feedback source");
     requireText(input.receivedAt, "feedback date");
     rejectCredentials(input.text, "feedback");
-    rejectCredentials(input.source, "feedback");
+    requireCredentialFreeSource(input.source);
     if (Number.isNaN(Date.parse(input.receivedAt))) {
       throw new Error("Feedback date must be an ISO-8601 date.");
     }
@@ -186,6 +186,14 @@ function rejectCredentials(value: unknown, location = "product configuration"): 
 }
 
 const credentialPattern = /\b(?:api[_-]?key|access[_-]?token|api[_-]?token|secret|password)\b/i;
+
+function requireCredentialFreeSource(source: string): void {
+  if (!sourceReferencePattern.test(source) || credentialPattern.test(source)) {
+    throw new Error("Feedback source must be a credential-free source reference.");
+  }
+}
+
+const sourceReferencePattern = /^[a-z][a-z0-9_-]*:[a-z0-9._-]+(?::[a-z0-9._-]+)*$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

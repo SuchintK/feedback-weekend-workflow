@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { Workflow } from "./workflow.ts";
 
 type Request =
-  | { action: "register-product"; product: { id: string; name: string; ownerId: string; configuration?: Record<string, unknown> } }
+  | { action: "register-product"; product: { id: string; name: string; configuration?: Record<string, unknown> } }
   | { action: "submit-feedback"; feedback: { productId: string; customerId: string; text: string; source: string; receivedAt: string } }
   | { action: "list-feedback"; productId: string }
   | { action: "validate-build-configuration"; productId: string };
@@ -22,7 +22,7 @@ try {
 function handle(workflow: Workflow, request: Request, actorId: string): object {
   switch (request.action) {
     case "register-product":
-      return { product: workflow.registerProduct(request.product) };
+      return { product: workflow.registerProduct(request.product, actorId) };
     case "submit-feedback":
       return { feedback: workflow.submitFeedback(request.feedback) };
     case "list-feedback":
