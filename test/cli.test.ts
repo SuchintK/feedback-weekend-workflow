@@ -22,15 +22,25 @@ function run(dataDirectory: string, request: unknown): unknown {
   return JSON.parse(result.stdout);
 }
 
+function runFailure(dataDirectory: string, request: unknown): string {
+  const result = spawnSync(
+    process.execPath,
+    ["src/cli.ts", "--data-dir", dataDirectory],
+    { cwd: projectRoot, encoding: "utf8", input: JSON.stringify(request) },
+  );
+  assert.notEqual(result.status, 0, result.stdout);
+  return result.stderr;
+}
+
 test("registers a product, stores traceable feedback, and retrieves it after restart", () => {
   const dataDirectory = mkdtempSync(join(tmpdir(), "feedback-workflow-"));
   try {
     const registration = run(dataDirectory, {
       action: "register-product",
-      product: { id: "atlas", name: "Atlas" },
+      product: { id: "atlas", name: "Atlas", ownerId: "owner-atlas" },
     });
     assert.deepEqual(registration, {
-      product: { id: "atlas", name: "Atlas", configuration: {} },
+      product: { id: "atlas", name: "Atlas", ownerId: "owner-atlas", configuration: {} },
     });
 
     const expectedFeedback = {
@@ -55,7 +65,7 @@ test("registers a product, stores traceable feedback, and retrieves it after res
       feedback: expectedFeedback,
     });
 
-    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-atlas" }), {
       feedback: [expectedFeedback],
     });
   } finally {
@@ -71,12 +81,13 @@ test("reports incomplete build configuration and keeps feedback isolated by prod
       product: {
         id: "atlas",
         name: "Atlas",
+        ownerId: "owner-atlas",
         configuration: { goals: ["Increase exports"] },
       },
     });
     run(dataDirectory, {
       action: "register-product",
-      product: { id: "beacon", name: "Beacon" },
+      product: { id: "beacon", name: "Beacon", ownerId: "owner-beacon" },
     });
     run(dataDirectory, {
       action: "submit-feedback",
@@ -89,10 +100,10 @@ test("reports incomplete build configuration and keeps feedback isolated by prod
       },
     });
 
-    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-atlas" }), {
       feedback: [],
     });
-    assert.deepEqual(run(dataDirectory, { action: "validate-build-configuration", productId: "atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "validate-build-configuration", productId: "atlas", actorId: "owner-atlas" }), {
       ready: false,
       missing: [
         "integrations",
@@ -105,6 +116,55 @@ test("reports incomplete build configuration and keeps feedback isolated by prod
         "spendingLimit",
       ],
     });
+  } finally {
+    rmSync(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+test("rejects credential-bearing configuration, empty integrations, and another owner's inspection", () => {
+  const dataDirectory = mkdtempSync(join(tmpdir(), "feedback-workflow-"));
+  try {
+    assert.match(
+      runFailure(dataDirectory, {
+        action: "register-product",
+        product: {
+          id: "unsafe",
+          name: "Unsafe",
+          ownerId: "owner-unsafe",
+          configuration: { integrations: { apiToken: "secret" } },
+        },
+      }),
+      /Credentials must stay outside product configuration/,
+    );
+
+    run(dataDirectory, {
+      action: "register-product",
+      product: {
+        id: "atlas",
+        name: "Atlas",
+        ownerId: "owner-atlas",
+        configuration: {
+          goals: ["Increase exports"],
+          integrations: {},
+          approver: "owner-atlas",
+          inventory: ["Exports"],
+          schedule: "Saturday",
+          validationInstructions: "npm test",
+          restrictedAreas: ["billing"],
+          runtimeMinutes: 30,
+          spendingLimit: 10,
+        },
+      },
+    });
+
+    assert.deepEqual(
+      run(dataDirectory, { action: "validate-build-configuration", productId: "atlas", actorId: "owner-atlas" }),
+      { ready: false, missing: ["integrations"] },
+    );
+    assert.match(
+      runFailure(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-other" }),
+      /not authorized/,
+    );
   } finally {
     rmSync(dataDirectory, { recursive: true, force: true });
   }

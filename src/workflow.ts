@@ -16,6 +16,7 @@ export type ProductConfiguration = {
 export type Product = {
   id: string;
   name: string;
+  ownerId: string;
   configuration: ProductConfiguration;
 };
 
@@ -52,9 +53,10 @@ export class Workflow {
     this.#filePath = join(dataDirectory, "workflow.json");
   }
 
-  registerProduct(input: { id: string; name: string; configuration?: ProductConfiguration }): Product {
+  registerProduct(input: { id: string; name: string; ownerId: string; configuration?: ProductConfiguration }): Product {
     requireText(input.id, "product id");
     requireText(input.name, "product name");
+    requireText(input.ownerId, "product owner id");
     rejectCredentials(input.configuration);
 
     const data = this.read();
@@ -65,6 +67,7 @@ export class Workflow {
     const product: Product = {
       id: input.id,
       name: input.name,
+      ownerId: input.ownerId,
       configuration: input.configuration ?? {},
     };
     data.products.push(product);
@@ -96,13 +99,13 @@ export class Workflow {
     return feedback;
   }
 
-  listFeedback(productId: string): Feedback[] {
-    this.getProduct(productId);
+  listFeedback(productId: string, actorId: string): Feedback[] {
+    this.authorize(productId, actorId);
     return this.read().feedback.filter((feedback) => feedback.productId === productId);
   }
 
-  validateBuildConfiguration(productId: string): { ready: boolean; missing: string[] } {
-    const configuration = this.getProduct(productId).configuration;
+  validateBuildConfiguration(productId: string, actorId: string): { ready: boolean; missing: string[] } {
+    const configuration = this.authorize(productId, actorId).configuration;
     const missing = requiredBuildSettings.filter((setting) => isMissing(configuration[setting]));
     return { ready: missing.length === 0, missing };
   }
@@ -111,6 +114,15 @@ export class Workflow {
     const product = this.read().products.find((item) => item.id === productId);
     if (product === undefined) {
       throw new Error(`Product '${productId}' is not registered.`);
+    }
+    return product;
+  }
+
+  private authorize(productId: string, actorId: string): Product {
+    requireText(actorId, "actor id");
+    const product = this.getProduct(productId);
+    if (product.ownerId !== actorId) {
+      throw new Error(`Actor '${actorId}' is not authorized to inspect product '${productId}'.`);
     }
     return product;
   }
@@ -135,7 +147,11 @@ export class Workflow {
 }
 
 function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
+  return value === undefined
+    || value === null
+    || value === ""
+    || (Array.isArray(value) && value.length === 0)
+    || (isRecord(value) && Object.keys(value).length === 0);
 }
 
 function requireText(value: string, label: string): void {
@@ -144,15 +160,25 @@ function requireText(value: string, label: string): void {
   }
 }
 
-function rejectCredentials(configuration: ProductConfiguration | undefined): void {
-  if (configuration === undefined) {
+function rejectCredentials(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      rejectCredentials(item);
+    }
     return;
   }
-  for (const key of Object.keys(configuration)) {
-    if (/credential|secret|token|password/i.test(key)) {
+  if (isRecord(value)) {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (/credential|secret|token|password/i.test(key)) {
       throw new Error("Credentials must stay outside product configuration.");
+      }
+      rejectCredentials(nestedValue);
     }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isMissingFile(error: unknown): error is NodeJS.ErrnoException {
