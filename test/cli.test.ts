@@ -7,13 +7,14 @@ import test from "node:test";
 
 const projectRoot = new URL("..", import.meta.url).pathname;
 
-function run(dataDirectory: string, request: unknown): unknown {
+function run(dataDirectory: string, request: unknown, actorId = "owner-atlas"): unknown {
   const result = spawnSync(
     process.execPath,
     ["src/cli.ts", "--data-dir", dataDirectory],
     {
       cwd: projectRoot,
       encoding: "utf8",
+      env: { ...process.env, WORKFLOW_ACTOR_ID: actorId },
       input: JSON.stringify(request),
     },
   );
@@ -22,11 +23,11 @@ function run(dataDirectory: string, request: unknown): unknown {
   return JSON.parse(result.stdout);
 }
 
-function runFailure(dataDirectory: string, request: unknown): string {
+function runFailure(dataDirectory: string, request: unknown, actorId = "owner-atlas"): string {
   const result = spawnSync(
     process.execPath,
     ["src/cli.ts", "--data-dir", dataDirectory],
-    { cwd: projectRoot, encoding: "utf8", input: JSON.stringify(request) },
+    { cwd: projectRoot, encoding: "utf8", input: JSON.stringify(request), env: { ...process.env, WORKFLOW_ACTOR_ID: actorId } },
   );
   assert.notEqual(result.status, 0, result.stdout);
   return result.stderr;
@@ -65,7 +66,7 @@ test("registers a product, stores traceable feedback, and retrieves it after res
       feedback: expectedFeedback,
     });
 
-    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas" }), {
       feedback: [expectedFeedback],
     });
   } finally {
@@ -100,10 +101,10 @@ test("reports incomplete build configuration and keeps feedback isolated by prod
       },
     });
 
-    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "list-feedback", productId: "atlas" }), {
       feedback: [],
     });
-    assert.deepEqual(run(dataDirectory, { action: "validate-build-configuration", productId: "atlas", actorId: "owner-atlas" }), {
+    assert.deepEqual(run(dataDirectory, { action: "validate-build-configuration", productId: "atlas" }), {
       ready: false,
       missing: [
         "integrations",
@@ -158,12 +159,25 @@ test("rejects credential-bearing configuration, empty integrations, and another 
     });
 
     assert.deepEqual(
-      run(dataDirectory, { action: "validate-build-configuration", productId: "atlas", actorId: "owner-atlas" }),
+      run(dataDirectory, { action: "validate-build-configuration", productId: "atlas" }),
       { ready: false, missing: ["integrations"] },
     );
     assert.match(
-      runFailure(dataDirectory, { action: "list-feedback", productId: "atlas", actorId: "owner-other" }),
+      runFailure(dataDirectory, { action: "list-feedback", productId: "atlas" }, "owner-other"),
       /not authorized/,
+    );
+    assert.match(
+      runFailure(dataDirectory, {
+        action: "submit-feedback",
+        feedback: {
+          productId: "atlas",
+          customerId: "customer-9",
+          text: "A request with an apiToken should not persist.",
+          source: "email://thread/9",
+          receivedAt: "2026-10-04T12:00:00.000Z",
+        },
+      }),
+      /Credentials must stay outside feedback/,
     );
   } finally {
     rmSync(dataDirectory, { recursive: true, force: true });

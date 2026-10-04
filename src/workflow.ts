@@ -81,6 +81,8 @@ export class Workflow {
     requireText(input.text, "feedback text");
     requireText(input.source, "feedback source");
     requireText(input.receivedAt, "feedback date");
+    rejectCredentials(input.text, "feedback");
+    rejectCredentials(input.source, "feedback");
     if (Number.isNaN(Date.parse(input.receivedAt))) {
       throw new Error("Feedback date must be an ISO-8601 date.");
     }
@@ -160,22 +162,30 @@ function requireText(value: string, label: string): void {
   }
 }
 
-function rejectCredentials(value: unknown): void {
+function rejectCredentials(value: unknown, location = "product configuration"): void {
+  if (typeof value === "string") {
+    if (credentialPattern.test(value)) {
+      throw new Error(`Credentials must stay outside ${location}.`);
+    }
+    return;
+  }
   if (Array.isArray(value)) {
     for (const item of value) {
-      rejectCredentials(item);
+      rejectCredentials(item, location);
     }
     return;
   }
   if (isRecord(value)) {
     for (const [key, nestedValue] of Object.entries(value)) {
       if (/credential|secret|token|password/i.test(key)) {
-      throw new Error("Credentials must stay outside product configuration.");
+        throw new Error(`Credentials must stay outside ${location}.`);
       }
-      rejectCredentials(nestedValue);
+      rejectCredentials(nestedValue, location);
     }
   }
 }
+
+const credentialPattern = /\b(?:api[_-]?key|access[_-]?token|api[_-]?token|secret|password)\b/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
