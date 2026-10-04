@@ -7,7 +7,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.ts",
-    "workflow": "node src/cli.ts"
+    "start": "node src/start.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
