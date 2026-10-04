@@ -19,4 +19,5 @@ The service currently provides these JSON routes:
 `analysisReady` requires goals plus repository, documentation, and inventory evidence.
 `buildReady` requires analysis readiness and additionally requires the repository branch, ticket destination, approver,
 validation and preview instructions, restrictions, schedule, limits, and integrations that declare
-credential-free endpoints plus runtime-limit and spending-limit enforcement capabilities.
+credential-free endpoints plus runtime-limit and spending-limit capabilities. A later integration
+activation step verifies those declared capabilities before it runs a build.

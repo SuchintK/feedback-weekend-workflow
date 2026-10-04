@@ -56,7 +56,7 @@ const buildOnlyRequirements: Requirement[] = [
   { label: "buildWindow", isSatisfied: (profile) => hasText(profile.buildWindow) },
   { label: "runtimeMinutes", isSatisfied: (profile) => hasPositiveNumber(profile.runtimeMinutes) },
   { label: "spendingLimit", isSatisfied: (profile) => hasPositiveNumber(profile.spendingLimit) },
-  { label: "integrations", isSatisfied: (profile) => hasEnforceableIntegrations(profile.integrations) },
+  { label: "integrations", isSatisfied: (profile) => hasDeclaredLimitCapabilities(profile.integrations) },
 ];
 
 export class WorkflowError extends Error {
@@ -158,20 +158,21 @@ function validateProfile(profile: ProductProfile): void {
   if (profile.restrictedAreas !== undefined && !hasTextList(profile.restrictedAreas)) throw new WorkflowError("Restricted areas must be non-empty text.", 400);
   if (profile.runtimeMinutes !== undefined && !hasPositiveNumber(profile.runtimeMinutes)) throw new WorkflowError("Runtime minutes must be a positive number.", 400);
   if (profile.spendingLimit !== undefined && !hasPositiveNumber(profile.spendingLimit)) throw new WorkflowError("Spending limit must be a positive number.", 400);
-  if (profile.integrations !== undefined && !hasEnforceableIntegrations(profile.integrations)) throw new WorkflowError("Integrations must have credential-free HTTP(S) endpoints and enforce runtime and spending limits.", 400);
+  if (profile.integrations !== undefined && !hasDeclaredLimitCapabilities(profile.integrations)) throw new WorkflowError("Integrations must have credential-free HTTP(S) endpoints and declare runtime and spending-limit capabilities.", 400);
 }
 function hasRepositoryIdentity(repository: RepositoryContext | undefined): boolean { return hasText(repository?.provider) && hasText(repository.reference) && isCredentialFreeHttpUrl(repository.url); }
 function hasText(value: unknown): value is string { return typeof value === "string" && value.trim() !== ""; }
 function hasTextList(value: unknown): value is string[] { return Array.isArray(value) && value.length > 0 && value.every(hasText); }
 function hasPositiveNumber(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value) && value > 0; }
-function hasEnforceableIntegrations(value: unknown): value is Record<string, IntegrationReference> { return isRecord(value) && Object.entries(value).length > 0 && Object.entries(value).every(([name, integration]) => hasText(name) && isRecord(integration) && isCredentialFreeHttpUrl(integration.endpoint) && hasTextList(integration.capabilities) && integration.capabilities.includes("runtime-limit") && integration.capabilities.includes("spending-limit")); }
+function hasDeclaredLimitCapabilities(value: unknown): value is Record<string, IntegrationReference> { return isRecord(value) && Object.entries(value).length > 0 && Object.entries(value).every(([name, integration]) => hasText(name) && isRecord(integration) && isCredentialFreeHttpUrl(integration.endpoint) && hasTextList(integration.capabilities) && integration.capabilities.includes("runtime-limit") && integration.capabilities.includes("spending-limit")); }
 function hasValidTimezone(value: unknown): boolean { if (!hasText(value)) return false; try { Intl.DateTimeFormat(undefined, { timeZone: value }); return true; } catch { return false; } }
 function hasTime(value: unknown): boolean { return hasText(value) && /^([01]\d|2[0-3]):[0-5]\d$/.test(value); }
-function isCredentialFreeHttpUrl(value: unknown): boolean { if (!hasText(value)) return false; try { const url = new URL(value); return (url.protocol === "http:" || url.protocol === "https:") && url.username === "" && url.password === "" && !credentialPattern.test(value); } catch { return false; } }
+function isCredentialFreeHttpUrl(value: unknown): boolean { if (!hasText(value)) return false; try { const url = new URL(value); return (url.protocol === "http:" || url.protocol === "https:") && url.username === "" && url.password === "" && ![...url.searchParams.keys()].some((key) => credentialFieldPattern.test(key)); } catch { return false; } }
 function requireText(value: string, label: string): void { if (!hasText(value)) throw new WorkflowError(`A ${label} is required.`, 400); }
-function rejectCredentials(value: unknown, location: string): void { if (typeof value === "string") { if (credentialPattern.test(value)) throw new WorkflowError(`Credentials must stay outside ${location}.`, 400); return; } if (Array.isArray(value)) value.forEach((item) => rejectCredentials(item, location)); else if (isRecord(value)) Object.entries(value).forEach(([key, nested]) => { if (/credential|secret|token|password/i.test(key)) throw new WorkflowError(`Credentials must stay outside ${location}.`, 400); rejectCredentials(nested, location); }); }
-function requireCredentialFreeSource(source: string): void { if (!sourceReferencePattern.test(source) || credentialPattern.test(source)) throw new WorkflowError("Feedback source must be a credential-free source reference.", 400); }
-const credentialPattern = /\b(?:api[_-]?key|access[_-]?token|api[_-]?token|secret|password)\b/i;
+function rejectCredentials(value: unknown, location: string): void { if (typeof value === "string") { if (credentialValuePattern.test(value)) throw new WorkflowError(`Credentials must stay outside ${location}.`, 400); return; } if (Array.isArray(value)) value.forEach((item) => rejectCredentials(item, location)); else if (isRecord(value)) Object.entries(value).forEach(([key, nested]) => { if (credentialFieldPattern.test(key)) throw new WorkflowError(`Credentials must stay outside ${location}.`, 400); rejectCredentials(nested, location); }); }
+function requireCredentialFreeSource(source: string): void { if (!sourceReferencePattern.test(source)) throw new WorkflowError("Feedback source must be a credential-free source reference.", 400); }
+const credentialFieldPattern = /credential|secret|token|password|api[_-]?key|access[_-]?token|api[_-]?token/i;
+const credentialValuePattern = /\b(?:api[_-]?key|access[_-]?token|api[_-]?token|secret|password)\b\s*[:=]\s*\S+|\bbearer\s+\S+/i;
 const sourceReferencePattern = /^[a-z][a-z0-9_-]*:[a-z0-9._-]+(?::[a-z0-9._-]+)*$/i;
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function isMissingFile(error: unknown): error is NodeJS.ErrnoException { return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT"; }

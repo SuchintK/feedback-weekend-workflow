@@ -101,7 +101,7 @@ test("accepts traceable feedback and restricts inspection to the registered owne
 
     const submission = await request(baseUrl, "/products/atlas/feedback", "POST", {
       customerId: "customer-42",
-      originalText: "Please let me export a CSV.",
+      originalText: "Password reset is broken; please let me export a CSV.",
       sourceReference: "intercom:conversation:987",
       receivedAt: "2026-10-04T10:00:00.000Z",
     });
@@ -113,7 +113,7 @@ test("accepts traceable feedback and restricts inspection to the registered owne
       id: "atlas-1",
       productId: "atlas",
       customerId: "customer-42",
-      originalText: "Please let me export a CSV.",
+      originalText: "Password reset is broken; please let me export a CSV.",
       sourceReference: "intercom:conversation:987",
       receivedAt: "2026-10-04T10:00:00.000Z",
     }]);
