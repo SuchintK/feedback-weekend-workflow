@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
+import { type AnalysisInput, type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
 
 export type OwnerAuthenticator = (request: IncomingMessage) => string | undefined;
 
@@ -17,6 +17,11 @@ export function createWorkflowServer(dataDirectory: string, authenticate: OwnerA
       if (request.method === "POST" && feedbackMatch !== null) {
         const ownerId = ownerFrom(request, authenticate);
         return json(response, 201, { feedback: workflow.submitFeedback(decodeURIComponent(feedbackMatch[1]), asFeedbackInput(await readJson(request)), ownerId) });
+      }
+      const analysisMatch = url.pathname.match(/^\/products\/([^/]+)\/analysis$/);
+      if (request.method === "POST" && analysisMatch !== null) {
+        const ownerId = ownerFrom(request, authenticate);
+        return json(response, 200, workflow.analyzeFeedback(decodeURIComponent(analysisMatch[1]), asAnalysisInput(await readJson(request)), ownerId));
       }
       const productMatch = url.pathname.match(/^\/products\/([^/]+)$/);
       if (request.method === "PATCH" && productMatch !== null) {
@@ -73,6 +78,31 @@ function asTextList(value: unknown, label: string): string[] { if (!Array.isArra
 function asPositiveNumber(value: unknown, label: string): number { if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) throw new WorkflowError(`${label} must be a positive number.`, 400); return value; }
 function asIntegrations(value: unknown): NonNullable<ProductProfile["integrations"]> { if (!isRecord(value) || Object.entries(value).length === 0) throw new WorkflowError("integrations must be a non-empty map.", 400); return Object.fromEntries(Object.entries(value).map(([name, integration]) => { if (name.trim() === "" || !isRecord(integration)) throw new WorkflowError("Each integration must be named and structured.", 400); return [name, { endpoint: asText(integration.endpoint, "integration.endpoint"), capabilities: asTextList(integration.capabilities, "integration.capabilities") }]; })); }
 function asFeedbackInput(value: unknown): { customerId: string; originalText: string; sourceReference: string; receivedAt: string } { if (!isRecord(value) || typeof value.customerId !== "string" || typeof value.originalText !== "string" || typeof value.sourceReference !== "string" || typeof value.receivedAt !== "string") throw new WorkflowError("Feedback customer ID, original text, source reference, and date are required.", 400); return { customerId: value.customerId, originalText: value.originalText, sourceReference: value.sourceReference, receivedAt: value.receivedAt }; }
+function asAnalysisInput(value: unknown): AnalysisInput {
+  if (!isRecord(value) || !Array.isArray(value.candidates)) throw new WorkflowError("Analysis candidates are required.", 400);
+  const candidates = value.candidates.map((candidate) => {
+    if (!isRecord(candidate) || typeof candidate.key !== "string" || typeof candidate.underlyingNeed !== "string" || (candidate.kind !== "feature" && candidate.kind !== "bug") || !Array.isArray(candidate.feedbackIds) || candidate.feedbackIds.some((feedbackId) => typeof feedbackId !== "string")) throw new WorkflowError("Each analysis candidate needs text key, underlying need, kind, and feedback IDs.", 400);
+    const kind: "feature" | "bug" = candidate.kind === "feature" ? "feature" : "bug";
+    return { key: candidate.key, underlyingNeed: candidate.underlyingNeed, kind, feedbackIds: candidate.feedbackIds as string[] };
+  });
+  if (value.existingTickets !== undefined && !Array.isArray(value.existingTickets)) throw new WorkflowError("Existing tickets must be a list.", 400);
+  const existingTickets = value.existingTickets?.map((ticket) => {
+    if (!isRecord(ticket) || typeof ticket.id !== "string" || typeof ticket.title !== "string") throw new WorkflowError("Each existing ticket needs an ID and title.", 400);
+    return { id: ticket.id, title: ticket.title };
+  });
+  if (value.matches !== undefined && !Array.isArray(value.matches)) throw new WorkflowError("Analysis matches must be a list.", 400);
+  const matches = value.matches?.map((match) => {
+    if (!isRecord(match) || typeof match.candidateKey !== "string" || typeof match.disposition !== "string") throw new WorkflowError("Each analysis match needs a candidate key and disposition.", 400);
+    if (!["unmet", "fulfilled", "unmet-extension", "uncertain"].includes(match.disposition)) throw new WorkflowError("Analysis match disposition is invalid.", 400);
+    const existingFunctionality = optionalText(match.existingFunctionality, "existingFunctionality");
+    const existingTicketId = optionalText(match.existingTicketId, "existingTicketId");
+    const clarificationQuestion = optionalText(match.clarificationQuestion, "clarificationQuestion");
+    if (match.suggestedInterpretations !== undefined && (!Array.isArray(match.suggestedInterpretations) || match.suggestedInterpretations.some((interpretation) => typeof interpretation !== "string"))) throw new WorkflowError("suggestedInterpretations must be text.", 400);
+    return { candidateKey: match.candidateKey, disposition: match.disposition as "unmet" | "fulfilled" | "unmet-extension" | "uncertain", existingFunctionality, existingTicketId, clarificationQuestion, suggestedInterpretations: match.suggestedInterpretations as string[] | undefined };
+  });
+  return { candidates, existingTickets, matches };
+}
+function optionalText(value: unknown, label: string): string | undefined { if (value === undefined) return undefined; if (typeof value !== "string") throw new WorkflowError(`${label} must be text.`, 400); return value; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function json(response: ServerResponse, status: number, body: unknown): void { response.writeHead(status, { "content-type": "application/json; charset=utf-8" }); response.end(`${JSON.stringify(body)}\n`); }
 function html(response: ServerResponse, status: number, body: string): void { response.writeHead(status, { "content-type": "text/html; charset=utf-8" }); response.end(`<!doctype html><html><body>${body}</body></html>`); }
