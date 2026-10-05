@@ -29,6 +29,10 @@ async function request(baseUrl: string, path: string, method: string, body?: unk
   });
 }
 
+async function verifyInventory(baseUrl: string, productId = "atlas"): Promise<Response> {
+  return request(baseUrl, `/products/${productId}/inventory-verification`, "POST", {});
+}
+
 test("registers an analysis-ready product through the persistent workflow service", async () => {
   await withServer(async (baseUrl) => {
     const response = await request(baseUrl, "/products", "POST", {
@@ -195,7 +199,7 @@ test("groups feature requests with their original evidence and separates bugs", 
       receivedAt: "2026-10-05T12:00:00.000Z",
     });
 
-    const response = await request(baseUrl, "/products/atlas/analysis", "POST", {
+    const analysis = {
       candidates: [
         { key: "spreadsheet-export", underlyingNeed: "Export reports in a spreadsheet-compatible format", kind: "feature", feedbackIds: ["atlas-1", "atlas-2"] },
         { key: "password-reset-error", underlyingNeed: "Reset a password successfully", kind: "bug", feedbackIds: ["atlas-3"] },
@@ -203,7 +207,17 @@ test("groups feature requests with their original evidence and separates bugs", 
       matches: [
         { candidateKey: "spreadsheet-export", disposition: "unmet-extension", existingFunctionality: "CSV export" },
       ],
+    };
+    const unverified = await request(baseUrl, "/products/atlas/analysis", "POST", analysis);
+    assert.equal(unverified.status, 409);
+    const verification = await verifyInventory(baseUrl);
+    assert.equal(verification.status, 200);
+    assert.deepEqual(await verification.json(), {
+      items: ["CSV export"],
+      repository: "https://github.com/suchint/atlas",
+      documentationReferences: ["README.md"],
     });
+    const response = await request(baseUrl, "/products/atlas/analysis", "POST", analysis);
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
@@ -253,21 +267,29 @@ test("reuses a matching existing ticket instead of creating a duplicate candidat
     const analysis = {
       candidates: [{ key: "spreadsheet-export", underlyingNeed: "Export reports in a spreadsheet-compatible format", kind: "feature", feedbackIds: ["atlas-1"] }],
       existingTickets: [{ id: "SUC-42", title: "Add spreadsheet export" }],
-      matches: [{ candidateKey: "spreadsheet-export", disposition: "unmet", existingTicketId: "SUC-42" }],
+      matches: [{ candidateKey: "spreadsheet-export", disposition: "unmet-extension", existingFunctionality: "CSV export", existingTicketId: "SUC-42" }],
     };
+    assert.equal((await verifyInventory(baseUrl)).status, 200);
     const first = await request(baseUrl, "/products/atlas/analysis", "POST", analysis);
     assert.equal(first.status, 200);
     assert.deepEqual((await first.json()).featureCandidates[0], {
       key: "spreadsheet-export",
       underlyingNeed: "Export reports in a spreadsheet-compatible format",
-      status: "existing-ticket",
+      status: "unmet-extension",
+      existingFunctionality: "CSV export",
       existingTicket: { id: "SUC-42", title: "Add spreadsheet export" },
       evidence: [{ id: "atlas-1", customerId: "customer-1", originalText: "Please support spreadsheet export.", sourceReference: "intercom:conversation:1", receivedAt: "2026-10-05T10:00:00.000Z" }],
     });
 
-    const repeated = await request(baseUrl, "/products/atlas/analysis", "POST", analysis);
+    const repeated = await request(baseUrl, "/products/atlas/analysis", "POST", {
+      ...analysis,
+      candidates: [{ ...analysis.candidates[0], key: "report-spreadsheet-download" }],
+      matches: [{ candidateKey: "report-spreadsheet-download", disposition: "unmet-extension", existingFunctionality: "CSV export", existingTicketId: "SUC-42" }],
+    });
     assert.equal(repeated.status, 200);
-    assert.equal((await repeated.json()).featureCandidates[0].reusedCandidate, true);
+    const reusedCandidate = (await repeated.json()).featureCandidates[0];
+    assert.equal(reusedCandidate.reusedCandidate, true);
+    assert.equal(reusedCandidate.key, "spreadsheet-export");
   });
 });
 
@@ -314,6 +336,7 @@ test("returns a clarification question and interpretations for an uncertain inve
       sourceReference: "intercom:conversation:1",
       receivedAt: "2026-10-05T10:00:00.000Z",
     });
+    assert.equal((await verifyInventory(baseUrl)).status, 200);
     const response = await request(baseUrl, "/products/atlas/analysis", "POST", {
       candidates: [{ key: "spreadsheet-export", underlyingNeed: "Export reports in a spreadsheet-compatible format", kind: "feature", feedbackIds: ["atlas-1"] }],
       matches: [{

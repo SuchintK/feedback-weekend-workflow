@@ -33,18 +33,21 @@ export type Product = { id: string; name: string; ownerId: string; profile: Prod
 export type Feedback = { id: string; productId: string; customerId: string; originalText: string; sourceReference: string; receivedAt: string };
 export type Readiness = { registered: boolean; analysisReady: boolean; buildReady: boolean; missingAnalysis: string[]; missingBuild: string[] };
 type CandidateKind = "feature" | "bug";
-type MatchDisposition = "unmet" | "fulfilled" | "unmet-extension" | "uncertain";
+export type MatchDisposition = "unmet" | "fulfilled" | "unmet-extension" | "uncertain";
+export function isMatchDisposition(value: unknown): value is MatchDisposition { return typeof value === "string" && ["unmet", "fulfilled", "unmet-extension", "uncertain"].includes(value); }
 type ExistingTicket = { id: string; title: string };
 type CandidateMatch = { disposition: MatchDisposition; existingFunctionality?: string; existingTicketId?: string; existingTicketTitle?: string; clarificationQuestion?: string; suggestedInterpretations?: string[] };
 type AnalysisMatch = { candidateKey: string } & CandidateMatch;
 type Candidate = { productId: string; key: string; underlyingNeed: string; kind: CandidateKind; feedbackIds: string[]; match?: CandidateMatch };
+type InventoryVerification = { productId: string; ownerId: string; items: string[]; repository: string; documentationReferences: string[] };
+export type CandidateInput = { key: string; underlyingNeed: string; kind: CandidateKind; feedbackIds: string[] };
 export type AnalysisInput = {
-  candidates: Array<{ key: string; underlyingNeed: string; kind: CandidateKind; feedbackIds: string[] }>;
+  candidates: CandidateInput[];
   existingTickets?: ExistingTicket[];
   matches?: AnalysisMatch[];
 };
 
-type StoredWorkflow = { products: Product[]; feedback: Feedback[]; candidates: Candidate[] };
+type StoredWorkflow = { products: Product[]; feedback: Feedback[]; candidates: Candidate[]; inventoryVerifications: InventoryVerification[] };
 type Requirement = { label: string; isSatisfied: (profile: ProductProfile) => boolean };
 
 const analysisRequirements: Requirement[] = [
@@ -127,20 +130,34 @@ export class Workflow {
     return { product, readiness: this.readiness(product), feedback: this.read().feedback.filter((feedback) => feedback.productId === productId) };
   }
 
+  verifyInventory(productId: string, ownerId: string): Omit<InventoryVerification, "productId" | "ownerId"> {
+    const data = this.read();
+    const product = this.productForOwner(productId, ownerId, data);
+    const readiness = this.readiness(product);
+    if (!readiness.analysisReady) throw new WorkflowError(`Inventory verification requires repository, documentation, and inventory evidence. Missing: ${readiness.missingAnalysis.join(", ")}.`, 409);
+    const verification = inventoryEvidence(product, ownerId);
+    data.inventoryVerifications = [...data.inventoryVerifications.filter((item) => item.productId !== productId), verification];
+    this.write(data);
+    return withoutInventoryVerificationIdentity(verification);
+  }
+
   analyzeFeedback(productId: string, input: AnalysisInput, ownerId: string): { inventory: { items: string[]; repository: string; documentationReferences: string[] }; featureCandidates: unknown[]; bugs: unknown[] } {
     const data = this.read();
     const product = this.productForOwner(productId, ownerId, data);
     const readiness = this.readiness(product);
     if (!readiness.analysisReady) throw new WorkflowError(`Analysis requires verified goals, repository, documentation, and inventory evidence. Missing: ${readiness.missingAnalysis.join(", ")}.`, 409);
+    if (!hasCurrentInventoryVerification(product, ownerId, data.inventoryVerifications)) throw new WorkflowError("The owner must verify the current inventory against repository and documentation evidence before analysis.", 409);
     validateAnalysisInput(input, product, data.feedback);
     const matches = new Map((input.matches ?? []).map((match) => [match.candidateKey, match]));
     const tickets = new Map((input.existingTickets ?? []).map((ticket) => [ticket.id, ticket]));
     const candidates = input.candidates.map((candidateInput) => {
       const match = matches.get(candidateInput.key);
       validateMatch(match, product.profile.inventory ?? [], tickets);
-      const existing = data.candidates.find((candidate) => candidate.productId === productId && candidate.key === candidateInput.key);
+      const existingWithKey = data.candidates.find((candidate) => candidate.productId === productId && candidate.key === candidateInput.key);
+      if (existingWithKey !== undefined && existingWithKey.underlyingNeed !== candidateInput.underlyingNeed) throw new WorkflowError(`Candidate key '${candidateInput.key}' conflicts with an existing underlying need.`, 409);
+      const existing = existingWithKey ?? data.candidates.find((candidate) => candidate.productId === productId && candidate.underlyingNeed === candidateInput.underlyingNeed);
       if (existing !== undefined) {
-        if (existing.kind !== candidateInput.kind || existing.underlyingNeed !== candidateInput.underlyingNeed) throw new WorkflowError(`Candidate '${candidateInput.key}' conflicts with the existing candidate.`, 409);
+        if (existing.kind !== candidateInput.kind) throw new WorkflowError(`Candidate '${candidateInput.key}' conflicts with the existing candidate.`, 409);
         existing.feedbackIds = unique([...existing.feedbackIds, ...candidateInput.feedbackIds]);
         existing.match = match === undefined ? existing.match : withoutCandidateKey(match, tickets);
         return { candidate: existing, reused: true };
@@ -179,9 +196,9 @@ export class Workflow {
   private read(): StoredWorkflow {
     try {
       const data = JSON.parse(readFileSync(this.#filePath, "utf8")) as Partial<StoredWorkflow>;
-      return { products: data.products ?? [], feedback: data.feedback ?? [], candidates: data.candidates ?? [] };
+      return { products: data.products ?? [], feedback: data.feedback ?? [], candidates: data.candidates ?? [], inventoryVerifications: data.inventoryVerifications ?? [] };
     }
-    catch (error) { if (isMissingFile(error)) return { products: [], feedback: [], candidates: [] }; throw error; }
+    catch (error) { if (isMissingFile(error)) return { products: [], feedback: [], candidates: [], inventoryVerifications: [] }; throw error; }
   }
 
   private write(data: StoredWorkflow): void {
@@ -221,10 +238,11 @@ function validateAnalysisInput(input: AnalysisInput, product: Product, feedback:
     if (matchKeys.has(match.candidateKey)) throw new WorkflowError(`Candidate '${match.candidateKey}' has more than one match.`, 400);
     matchKeys.add(match.candidateKey);
   }
+  for (const candidate of input.candidates) if (candidate.kind === "feature" && !matchKeys.has(candidate.key)) throw new WorkflowError(`Feature candidate '${candidate.key}' needs an inventory and ticket comparison outcome.`, 400);
 }
 function validateMatch(match: AnalysisMatch | undefined, inventory: string[], tickets: ReadonlyMap<string, ExistingTicket>): void {
   if (match === undefined) return;
-  if (!["unmet", "fulfilled", "unmet-extension", "uncertain"].includes(match.disposition)) throw new WorkflowError("Candidate match disposition is invalid.", 400);
+  if (!isMatchDisposition(match.disposition)) throw new WorkflowError("Candidate match disposition is invalid.", 400);
   if (match.existingFunctionality !== undefined && !inventory.includes(match.existingFunctionality)) throw new WorkflowError(`Existing functionality '${match.existingFunctionality}' is not in the verified inventory.`, 400);
   if (["fulfilled", "unmet-extension"].includes(match.disposition) && !hasText(match.existingFunctionality)) throw new WorkflowError(`${match.disposition} matches require verified existing functionality.`, 400);
   if (match.existingTicketId !== undefined && (!hasText(match.existingTicketId) || !tickets.has(match.existingTicketId))) throw new WorkflowError("Existing ticket matches must reference a checked ticket.", 400);
@@ -237,7 +255,7 @@ function withoutCandidateKey(match: AnalysisMatch, tickets: ReadonlyMap<string, 
 }
 function evidenceFor(candidate: Candidate, feedbackById: Map<string, Feedback>): Array<Omit<Feedback, "productId">> { return candidate.feedbackIds.map((feedbackId) => { const feedback = feedbackById.get(feedbackId); if (feedback === undefined) throw new Error(`Missing candidate feedback '${feedbackId}'.`); const { productId: _, ...evidence } = feedback; return evidence; }); }
 function asFeatureCandidate(candidate: Candidate, feedbackById: Map<string, Feedback>, reused: boolean): object {
-  const result: Record<string, unknown> = { key: candidate.key, underlyingNeed: candidate.underlyingNeed, status: candidate.match?.existingTicketId === undefined ? candidate.match?.disposition ?? "unmet" : "existing-ticket" };
+  const result: Record<string, unknown> = { key: candidate.key, underlyingNeed: candidate.underlyingNeed, status: candidate.match?.disposition ?? "unmet" };
   if (candidate.match?.existingFunctionality !== undefined) result.existingFunctionality = candidate.match.existingFunctionality;
   if (candidate.match?.existingTicketId !== undefined) result.existingTicket = { id: candidate.match.existingTicketId, title: candidate.match.existingTicketTitle };
   if (candidate.match?.clarificationQuestion !== undefined) result.clarificationQuestion = candidate.match.clarificationQuestion;
@@ -248,6 +266,13 @@ function asFeatureCandidate(candidate: Candidate, feedbackById: Map<string, Feed
 }
 function asBugCandidate(candidate: Candidate, feedbackById: Map<string, Feedback>): object { return { key: candidate.key, underlyingNeed: candidate.underlyingNeed, evidence: evidenceFor(candidate, feedbackById) }; }
 function unique(values: string[]): string[] { return [...new Set(values)]; }
+function inventoryEvidence(product: Product, ownerId: string): InventoryVerification { return { productId: product.id, ownerId, items: product.profile.inventory ?? [], repository: product.profile.repository?.url ?? "", documentationReferences: product.profile.repository?.documentationReferences ?? [] }; }
+function withoutInventoryVerificationIdentity(verification: InventoryVerification): Omit<InventoryVerification, "productId" | "ownerId"> { const { productId: _, ownerId: __, ...evidence } = verification; return evidence; }
+function hasCurrentInventoryVerification(product: Product, ownerId: string, verifications: InventoryVerification[]): boolean {
+  const current = inventoryEvidence(product, ownerId);
+  return verifications.some((verification) => verification.productId === current.productId && verification.ownerId === current.ownerId && verification.repository === current.repository && sameTextList(verification.items, current.items) && sameTextList(verification.documentationReferences, current.documentationReferences));
+}
+function sameTextList(left: string[], right: string[]): boolean { return left.length === right.length && left.every((value, index) => value === right[index]); }
 function mergeProfile(current: ProductProfile, patch: ProductProfile): ProductProfile { return { ...current, ...patch, repository: patch.repository === undefined ? current.repository : { ...current.repository, ...patch.repository } }; }
 function validateProfile(profile: ProductProfile): void {
   rejectCredentials(profile, "product profile");

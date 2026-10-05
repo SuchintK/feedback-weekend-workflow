@@ -13,6 +13,7 @@ The service currently provides these JSON routes:
 
 - `POST /products` registers a product profile.
 - `POST /products/:id/feedback` records structured feedback.
+- `POST /products/:id/inventory-verification` records the owner's verification of the current repository, documentation, and inventory evidence.
 - `POST /products/:id/analysis` records owner-reviewed request groups and returns their evidence-backed feature candidates and bugs.
 - `PATCH /products/:id` lets the registered owner complete its partial profile over time.
 - `GET /products/:id` returns the owner-scoped product, readiness, and feedback evidence.
@@ -23,9 +24,11 @@ validation and preview instructions, restrictions, schedule, limits, and integra
 credential-free endpoints plus runtime-limit and spending-limit capabilities. A later integration
 activation step verifies those declared capabilities before it runs a build.
 
-Analysis accepts explicit, vendor-neutral interpretations of underlying needs. Each input candidate
-links one or more submitted feedback IDs, has a `feature` or `bug` kind, and can be matched against
-the verified inventory or a supplied list of checked existing tickets. It preserves the original
-feedback as evidence, reuses an existing candidate with the same key, and requires a clarification
-question plus suggested interpretations when a fulfillment match is uncertain. Customer feedback
-cannot modify product configuration or authorize any workflow operation.
+Before analysis, the authenticated owner must verify the current inventory against the configured
+repository and documentation references. Analysis accepts explicit, vendor-neutral interpretations
+of underlying needs. Each input candidate links one or more submitted feedback IDs and has a
+`feature` or `bug` kind. Every feature candidate requires an inventory-and-ticket comparison
+outcome. It preserves the original feedback as evidence, reuses an existing candidate with the same
+underlying need, and requires a clarification question plus suggested interpretations when a
+fulfillment match is uncertain. Customer feedback cannot modify product configuration or authorize
+any workflow operation.

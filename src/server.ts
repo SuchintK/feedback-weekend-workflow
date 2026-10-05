@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { type AnalysisInput, type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
+import { isMatchDisposition, type AnalysisInput, type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
 
 export type OwnerAuthenticator = (request: IncomingMessage) => string | undefined;
 
@@ -17,6 +17,12 @@ export function createWorkflowServer(dataDirectory: string, authenticate: OwnerA
       if (request.method === "POST" && feedbackMatch !== null) {
         const ownerId = ownerFrom(request, authenticate);
         return json(response, 201, { feedback: workflow.submitFeedback(decodeURIComponent(feedbackMatch[1]), asFeedbackInput(await readJson(request)), ownerId) });
+      }
+      const inventoryVerificationMatch = url.pathname.match(/^\/products\/([^/]+)\/inventory-verification$/);
+      if (request.method === "POST" && inventoryVerificationMatch !== null) {
+        const ownerId = ownerFrom(request, authenticate);
+        asObject(await readJson(request), "Inventory verification request");
+        return json(response, 200, workflow.verifyInventory(decodeURIComponent(inventoryVerificationMatch[1]), ownerId));
       }
       const analysisMatch = url.pathname.match(/^\/products\/([^/]+)\/analysis$/);
       if (request.method === "POST" && analysisMatch !== null) {
@@ -93,16 +99,17 @@ function asAnalysisInput(value: unknown): AnalysisInput {
   if (value.matches !== undefined && !Array.isArray(value.matches)) throw new WorkflowError("Analysis matches must be a list.", 400);
   const matches = value.matches?.map((match) => {
     if (!isRecord(match) || typeof match.candidateKey !== "string" || typeof match.disposition !== "string") throw new WorkflowError("Each analysis match needs a candidate key and disposition.", 400);
-    if (!["unmet", "fulfilled", "unmet-extension", "uncertain"].includes(match.disposition)) throw new WorkflowError("Analysis match disposition is invalid.", 400);
+    if (!isMatchDisposition(match.disposition)) throw new WorkflowError("Analysis match disposition is invalid.", 400);
     const existingFunctionality = optionalText(match.existingFunctionality, "existingFunctionality");
     const existingTicketId = optionalText(match.existingTicketId, "existingTicketId");
     const clarificationQuestion = optionalText(match.clarificationQuestion, "clarificationQuestion");
     if (match.suggestedInterpretations !== undefined && (!Array.isArray(match.suggestedInterpretations) || match.suggestedInterpretations.some((interpretation) => typeof interpretation !== "string"))) throw new WorkflowError("suggestedInterpretations must be text.", 400);
-    return { candidateKey: match.candidateKey, disposition: match.disposition as "unmet" | "fulfilled" | "unmet-extension" | "uncertain", existingFunctionality, existingTicketId, clarificationQuestion, suggestedInterpretations: match.suggestedInterpretations as string[] | undefined };
+    return { candidateKey: match.candidateKey, disposition: match.disposition, existingFunctionality, existingTicketId, clarificationQuestion, suggestedInterpretations: match.suggestedInterpretations as string[] | undefined };
   });
   return { candidates, existingTickets, matches };
 }
 function optionalText(value: unknown, label: string): string | undefined { if (value === undefined) return undefined; if (typeof value !== "string") throw new WorkflowError(`${label} must be text.`, 400); return value; }
+function asObject(value: unknown, label: string): Record<string, unknown> { if (!isRecord(value)) throw new WorkflowError(`${label} must be an object.`, 400); return value; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function json(response: ServerResponse, status: number, body: unknown): void { response.writeHead(status, { "content-type": "application/json; charset=utf-8" }); response.end(`${JSON.stringify(body)}\n`); }
 function html(response: ServerResponse, status: number, body: string): void { response.writeHead(status, { "content-type": "text/html; charset=utf-8" }); response.end(`<!doctype html><html><body>${body}</body></html>`); }
