@@ -30,5 +30,6 @@ of underlying needs. Each input candidate links one or more submitted feedback I
 `feature` or `bug` kind. Every feature candidate requires an inventory-and-ticket comparison
 outcome. It preserves the original feedback as evidence, reuses an existing candidate with the same
 underlying need, and requires a clarification question plus suggested interpretations when a
-fulfillment match is uncertain. Customer feedback cannot modify product configuration or authorize
-any workflow operation.
+fulfillment match is uncertain. Existing-ticket lookup is a vendor-neutral server-side integration
+seam, so an analysis request cannot assert its own ticket match. Customer feedback cannot modify
+product configuration or authorize any workflow operation.

@@ -14,5 +14,6 @@ verification captures the repository, documentation references, and items that t
 analysis requires that record to match the current profile. Analysis does not change readiness and
 customer feedback remains untrusted evidence rather than an instruction source. SUC-8 consumes only
 feature candidates whose match remains unmet or an unmet extension and have no checked existing
-ticket; bugs, fulfilled scope, checked existing tickets, and uncertain matches are not eligible for
-a new proposal.
+ticket; a vendor-neutral server-side ticket finder supplies that check rather than trusting analysis
+input. Bugs, fulfilled scope, checked existing tickets, and uncertain matches are not eligible for a
+new proposal.

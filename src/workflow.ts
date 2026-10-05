@@ -35,15 +35,16 @@ export type Readiness = { registered: boolean; analysisReady: boolean; buildRead
 type CandidateKind = "feature" | "bug";
 export type MatchDisposition = "unmet" | "fulfilled" | "unmet-extension" | "uncertain";
 export function isMatchDisposition(value: unknown): value is MatchDisposition { return typeof value === "string" && ["unmet", "fulfilled", "unmet-extension", "uncertain"].includes(value); }
-type ExistingTicket = { id: string; title: string };
-type CandidateMatch = { disposition: MatchDisposition; existingFunctionality?: string; existingTicketId?: string; existingTicketTitle?: string; clarificationQuestion?: string; suggestedInterpretations?: string[] };
-type AnalysisMatch = { candidateKey: string } & CandidateMatch;
+export type ExistingTicket = { id: string; title: string };
+export type ExistingTicketFinder = (product: Product, underlyingNeed: string) => ExistingTicket | undefined;
+type CandidateComparison = { disposition: MatchDisposition; existingFunctionality?: string; clarificationQuestion?: string; suggestedInterpretations?: string[] };
+type CandidateMatch = CandidateComparison & { existingTicketId?: string; existingTicketTitle?: string };
+type AnalysisMatch = { candidateKey: string } & CandidateComparison;
 type Candidate = { productId: string; key: string; underlyingNeed: string; kind: CandidateKind; feedbackIds: string[]; match?: CandidateMatch };
 type InventoryVerification = { productId: string; ownerId: string; items: string[]; repository: string; documentationReferences: string[] };
 export type CandidateInput = { key: string; underlyingNeed: string; kind: CandidateKind; feedbackIds: string[] };
 export type AnalysisInput = {
   candidates: CandidateInput[];
-  existingTickets?: ExistingTicket[];
   matches?: AnalysisMatch[];
 };
 
@@ -80,7 +81,8 @@ export class WorkflowError extends Error {
 
 export class Workflow {
   readonly #filePath: string;
-  constructor(dataDirectory: string) { this.#filePath = join(dataDirectory, "workflow.json"); }
+  readonly #findExistingTicket: ExistingTicketFinder;
+  constructor(dataDirectory: string, findExistingTicket: ExistingTicketFinder = () => undefined) { this.#filePath = join(dataDirectory, "workflow.json"); this.#findExistingTicket = findExistingTicket; }
 
   registerProduct(input: { id: string; name: string; profile: ProductProfile }, ownerId: string): { product: Product; readiness: Readiness } {
     requireText(input.id, "product ID");
@@ -149,20 +151,21 @@ export class Workflow {
     if (!hasCurrentInventoryVerification(product, ownerId, data.inventoryVerifications)) throw new WorkflowError("The owner must verify the current inventory against repository and documentation evidence before analysis.", 409);
     validateAnalysisInput(input, product, data.feedback);
     const matches = new Map((input.matches ?? []).map((match) => [match.candidateKey, match]));
-    const tickets = new Map((input.existingTickets ?? []).map((ticket) => [ticket.id, ticket]));
     const candidates = input.candidates.map((candidateInput) => {
       const match = matches.get(candidateInput.key);
-      validateMatch(match, product.profile.inventory ?? [], tickets);
+      validateMatch(match, product.profile.inventory ?? []);
+      const existingTicket = this.#findExistingTicket(product, candidateInput.underlyingNeed);
+      validateExistingTicket(existingTicket);
       const existingWithKey = data.candidates.find((candidate) => candidate.productId === productId && candidate.key === candidateInput.key);
       if (existingWithKey !== undefined && existingWithKey.underlyingNeed !== candidateInput.underlyingNeed) throw new WorkflowError(`Candidate key '${candidateInput.key}' conflicts with an existing underlying need.`, 409);
       const existing = existingWithKey ?? data.candidates.find((candidate) => candidate.productId === productId && candidate.underlyingNeed === candidateInput.underlyingNeed);
       if (existing !== undefined) {
         if (existing.kind !== candidateInput.kind) throw new WorkflowError(`Candidate '${candidateInput.key}' conflicts with the existing candidate.`, 409);
         existing.feedbackIds = unique([...existing.feedbackIds, ...candidateInput.feedbackIds]);
-        existing.match = match === undefined ? existing.match : withoutCandidateKey(match, tickets);
+        existing.match = match === undefined ? existing.match : withExistingTicket(withoutCandidateKey(match), existingTicket);
         return { candidate: existing, reused: true };
       }
-      const candidate: Candidate = { productId, ...candidateInput, feedbackIds: unique(candidateInput.feedbackIds), match: match === undefined ? undefined : withoutCandidateKey(match, tickets) };
+      const candidate: Candidate = { productId, ...candidateInput, feedbackIds: unique(candidateInput.feedbackIds), match: match === undefined ? undefined : withExistingTicket(withoutCandidateKey(match), existingTicket) };
       data.candidates.push(candidate);
       return { candidate, reused: false };
     });
@@ -227,12 +230,6 @@ function validateAnalysisInput(input: AnalysisInput, product: Product, feedback:
     }
   }
   const matchKeys = new Set<string>();
-  const ticketIds = new Set<string>();
-  for (const ticket of input.existingTickets ?? []) {
-    if (!hasText(ticket.id) || !hasText(ticket.title)) throw new WorkflowError("Each existing ticket needs an ID and title.", 400);
-    if (ticketIds.has(ticket.id)) throw new WorkflowError(`Existing ticket '${ticket.id}' is duplicated.`, 400);
-    ticketIds.add(ticket.id);
-  }
   for (const match of input.matches ?? []) {
     if (!hasText(match.candidateKey) || !candidateKeys.has(match.candidateKey)) throw new WorkflowError("Every match must identify an analyzed candidate.", 400);
     if (matchKeys.has(match.candidateKey)) throw new WorkflowError(`Candidate '${match.candidateKey}' has more than one match.`, 400);
@@ -240,19 +237,19 @@ function validateAnalysisInput(input: AnalysisInput, product: Product, feedback:
   }
   for (const candidate of input.candidates) if (candidate.kind === "feature" && !matchKeys.has(candidate.key)) throw new WorkflowError(`Feature candidate '${candidate.key}' needs an inventory and ticket comparison outcome.`, 400);
 }
-function validateMatch(match: AnalysisMatch | undefined, inventory: string[], tickets: ReadonlyMap<string, ExistingTicket>): void {
+function validateMatch(match: AnalysisMatch | undefined, inventory: string[]): void {
   if (match === undefined) return;
   if (!isMatchDisposition(match.disposition)) throw new WorkflowError("Candidate match disposition is invalid.", 400);
   if (match.existingFunctionality !== undefined && !inventory.includes(match.existingFunctionality)) throw new WorkflowError(`Existing functionality '${match.existingFunctionality}' is not in the verified inventory.`, 400);
   if (["fulfilled", "unmet-extension"].includes(match.disposition) && !hasText(match.existingFunctionality)) throw new WorkflowError(`${match.disposition} matches require verified existing functionality.`, 400);
-  if (match.existingTicketId !== undefined && (!hasText(match.existingTicketId) || !tickets.has(match.existingTicketId))) throw new WorkflowError("Existing ticket matches must reference a checked ticket.", 400);
   if (match.disposition === "uncertain" && (!hasText(match.clarificationQuestion) || !hasTextList(match.suggestedInterpretations))) throw new WorkflowError("Uncertain matches require a clarification question and suggested interpretations.", 400);
 }
-function withoutCandidateKey(match: AnalysisMatch, tickets: ReadonlyMap<string, ExistingTicket>): CandidateMatch {
+function validateExistingTicket(ticket: ExistingTicket | undefined): void { if (ticket !== undefined && (!hasText(ticket.id) || !hasText(ticket.title))) throw new WorkflowError("The existing-ticket integration returned an invalid ticket.", 502); }
+function withoutCandidateKey(match: AnalysisMatch): CandidateComparison {
   const { candidateKey: _, ...candidateMatch } = match;
-  const ticket = candidateMatch.existingTicketId === undefined ? undefined : tickets.get(candidateMatch.existingTicketId);
-  return ticket === undefined ? candidateMatch : { ...candidateMatch, existingTicketTitle: ticket.title };
+  return candidateMatch;
 }
+function withExistingTicket(match: CandidateComparison, ticket: ExistingTicket | undefined): CandidateMatch { return ticket === undefined ? match : { ...match, existingTicketId: ticket.id, existingTicketTitle: ticket.title }; }
 function evidenceFor(candidate: Candidate, feedbackById: Map<string, Feedback>): Array<Omit<Feedback, "productId">> { return candidate.feedbackIds.map((feedbackId) => { const feedback = feedbackById.get(feedbackId); if (feedback === undefined) throw new Error(`Missing candidate feedback '${feedbackId}'.`); const { productId: _, ...evidence } = feedback; return evidence; }); }
 function asFeatureCandidate(candidate: Candidate, feedbackById: Map<string, Feedback>, reused: boolean): object {
   const result: Record<string, unknown> = { key: candidate.key, underlyingNeed: candidate.underlyingNeed, status: candidate.match?.disposition ?? "unmet" };

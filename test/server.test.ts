@@ -3,11 +3,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { bearerTokenAuthenticator, createWorkflowServer } from "../src/server.ts";
+import { bearerTokenAuthenticator, createWorkflowServer, type ExistingTicketFinder } from "../src/server.ts";
 
-async function withServer(run: (baseUrl: string) => Promise<void>): Promise<void> {
+async function withServer(run: (baseUrl: string) => Promise<void>, findExistingTicket: ExistingTicketFinder = () => undefined): Promise<void> {
   const dataDirectory = mkdtempSync(join(tmpdir(), "feedback-workflow-"));
-  const server = createWorkflowServer(dataDirectory, bearerTokenAuthenticator(new Map([["atlas-token", "owner-atlas"], ["other-token", "owner-other"]])));
+  const server = createWorkflowServer(dataDirectory, bearerTokenAuthenticator(new Map([["atlas-token", "owner-atlas"], ["other-token", "owner-other"]])), findExistingTicket);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const address = server.address();
   if (address === null || typeof address === "string") throw new Error("Server did not bind to a TCP port.");
@@ -266,8 +266,7 @@ test("reuses a matching existing ticket instead of creating a duplicate candidat
 
     const analysis = {
       candidates: [{ key: "spreadsheet-export", underlyingNeed: "Export reports in a spreadsheet-compatible format", kind: "feature", feedbackIds: ["atlas-1"] }],
-      existingTickets: [{ id: "SUC-42", title: "Add spreadsheet export" }],
-      matches: [{ candidateKey: "spreadsheet-export", disposition: "unmet-extension", existingFunctionality: "CSV export", existingTicketId: "SUC-42" }],
+      matches: [{ candidateKey: "spreadsheet-export", disposition: "unmet-extension", existingFunctionality: "CSV export" }],
     };
     assert.equal((await verifyInventory(baseUrl)).status, 200);
     const first = await request(baseUrl, "/products/atlas/analysis", "POST", analysis);
@@ -284,13 +283,13 @@ test("reuses a matching existing ticket instead of creating a duplicate candidat
     const repeated = await request(baseUrl, "/products/atlas/analysis", "POST", {
       ...analysis,
       candidates: [{ ...analysis.candidates[0], key: "report-spreadsheet-download" }],
-      matches: [{ candidateKey: "report-spreadsheet-download", disposition: "unmet-extension", existingFunctionality: "CSV export", existingTicketId: "SUC-42" }],
+      matches: [{ candidateKey: "report-spreadsheet-download", disposition: "unmet-extension", existingFunctionality: "CSV export" }],
     });
     assert.equal(repeated.status, 200);
     const reusedCandidate = (await repeated.json()).featureCandidates[0];
     assert.equal(reusedCandidate.reusedCandidate, true);
     assert.equal(reusedCandidate.key, "spreadsheet-export");
-  });
+  }, (_product, underlyingNeed) => underlyingNeed === "Export reports in a spreadsheet-compatible format" ? { id: "SUC-42", title: "Add spreadsheet export" } : undefined);
 });
 
 test("surfaces uncertain fulfillment for owner clarification and keeps feedback from changing workflow configuration", async () => {

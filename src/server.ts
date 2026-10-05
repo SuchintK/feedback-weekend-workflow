@@ -1,10 +1,11 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { isMatchDisposition, type AnalysisInput, type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
+import { isMatchDisposition, type AnalysisInput, type ExistingTicketFinder, type ProductProfile, Workflow, WorkflowError } from "./workflow.ts";
 
 export type OwnerAuthenticator = (request: IncomingMessage) => string | undefined;
+export type { ExistingTicketFinder } from "./workflow.ts";
 
-export function createWorkflowServer(dataDirectory: string, authenticate: OwnerAuthenticator = () => undefined): Server {
-  const workflow = new Workflow(dataDirectory);
+export function createWorkflowServer(dataDirectory: string, authenticate: OwnerAuthenticator = () => undefined, findExistingTicket: ExistingTicketFinder = () => undefined): Server {
+  const workflow = new Workflow(dataDirectory, findExistingTicket);
   return createServer(async (request, response) => {
     try {
       const url = new URL(request.url ?? "/", "http://localhost");
@@ -91,22 +92,16 @@ function asAnalysisInput(value: unknown): AnalysisInput {
     const kind: "feature" | "bug" = candidate.kind === "feature" ? "feature" : "bug";
     return { key: candidate.key, underlyingNeed: candidate.underlyingNeed, kind, feedbackIds: candidate.feedbackIds as string[] };
   });
-  if (value.existingTickets !== undefined && !Array.isArray(value.existingTickets)) throw new WorkflowError("Existing tickets must be a list.", 400);
-  const existingTickets = value.existingTickets?.map((ticket) => {
-    if (!isRecord(ticket) || typeof ticket.id !== "string" || typeof ticket.title !== "string") throw new WorkflowError("Each existing ticket needs an ID and title.", 400);
-    return { id: ticket.id, title: ticket.title };
-  });
   if (value.matches !== undefined && !Array.isArray(value.matches)) throw new WorkflowError("Analysis matches must be a list.", 400);
   const matches = value.matches?.map((match) => {
     if (!isRecord(match) || typeof match.candidateKey !== "string" || typeof match.disposition !== "string") throw new WorkflowError("Each analysis match needs a candidate key and disposition.", 400);
     if (!isMatchDisposition(match.disposition)) throw new WorkflowError("Analysis match disposition is invalid.", 400);
     const existingFunctionality = optionalText(match.existingFunctionality, "existingFunctionality");
-    const existingTicketId = optionalText(match.existingTicketId, "existingTicketId");
     const clarificationQuestion = optionalText(match.clarificationQuestion, "clarificationQuestion");
     if (match.suggestedInterpretations !== undefined && (!Array.isArray(match.suggestedInterpretations) || match.suggestedInterpretations.some((interpretation) => typeof interpretation !== "string"))) throw new WorkflowError("suggestedInterpretations must be text.", 400);
-    return { candidateKey: match.candidateKey, disposition: match.disposition, existingFunctionality, existingTicketId, clarificationQuestion, suggestedInterpretations: match.suggestedInterpretations as string[] | undefined };
+    return { candidateKey: match.candidateKey, disposition: match.disposition, existingFunctionality, clarificationQuestion, suggestedInterpretations: match.suggestedInterpretations as string[] | undefined };
   });
-  return { candidates, existingTickets, matches };
+  return { candidates, matches };
 }
 function optionalText(value: unknown, label: string): string | undefined { if (value === undefined) return undefined; if (typeof value !== "string") throw new WorkflowError(`${label} must be text.`, 400); return value; }
 function asObject(value: unknown, label: string): Record<string, unknown> { if (!isRecord(value)) throw new WorkflowError(`${label} must be an object.`, 400); return value; }
