@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>05 · Technical decisions · Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/diagrams.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="01-product-overview.html"
+        >Feedback workflow · Understanding</a
+      >
+      <nav aria-label="Knowledge base">
+        <a href="01-product-overview.html">Product</a
+        ><a href="02-system-architecture.html">Architecture</a
+        ><a href="03-data-flow.html">Flows</a
+        ><a href="04-ticket-dependencies.html">Tickets</a
+        ><a href="05-technical-decisions.html">Decisions</a
+        ><a href="06-learning-roadmap.html">Learning</a
+        ><a href="07-glossary.html">Glossary</a
+        ><a href="08-open-questions.html">Questions</a
+        ><a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>05 · Technical decisions</h1>
+      <p class="meta">
+        Evidence reviewed 9 October 2026 · branch
+        <code>feature/SUC-7-group-feedback</code> · commit
+        <code>b80de3d0816df80869251b8550d1ccae07236eb4</code>. This is a branch
+        snapshot; merge and deployment status were not verified.
+      </p>
+      <p>
+        <strong>Documented rationale</strong> means an explicit reason in an
+        accepted ADR or requirement. <strong>Observed choice</strong> means code
+        does it but a selection rationale was not found.
+        <strong>Mentor analysis</strong> means an interpretation, alternative,
+        or trade-off offered for learning; it is not a historical decision.
+        <strong>Planned requirement</strong> describes behavior still to
+        implement.
+      </p>
+      <h2 id="profile">
+        D1 · Persistent Product Profile and authenticated owner workflow
+      </h2>
+      <p>
+        <strong>Problem:</strong> repository context, goals, inventory,
+        operating constraints, and ownership must survive recurring work and
+        ticket handoffs. <strong>Selected approach:</strong> one durable,
+        credential-free per-product profile, completed incrementally through an
+        authenticated workflow. <strong>Status:</strong> accepted ADR;
+        implemented in SUC-6.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong>
+        <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a>
+        explicitly selects persistence over a one-request CLI to avoid
+        rediscovering context across SUC-7/SUC-11. The server derives identity
+        from verified authentication; readiness describes configuration.
+      </p>
+      <p>
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> per-run
+        CLI flags make small experiments easy but repeatedly carry configuration
+        and identity. A static configuration file reduces setup UI work but
+        needs an owner-safe update process. A persistent profile concentrates
+        context, at the cost of storage, update rules, stale data handling, and
+        access control. <strong>Limitations:</strong> current setup is HTTP
+        JSON, not a rich owner dashboard; read-only status is not activation or
+        approval.
+      </p>
+      <p>
+        Code:
+        <a href="../../src/workflow.ts"
+          >ProductProfile, registerProduct, updateProductProfile</a
+        >. Tickets: <a href="tickets/SUC-6.html">6</a>,
+        <a href="tickets/SUC-7.html">7</a>,
+        <a href="tickets/SUC-11.html">11</a>.
+      </p>
+      <h2 id="candidate">
+        D2 · Persist candidates with original evidence and inventory
+        verification
+      </h2>
+      <p>
+        <strong>Problem:</strong> later demand evaluation must reuse an
+        interpreted need and its evidence, rather than recreating transient
+        groups every week. <strong>Selected approach:</strong> durable
+        candidates keyed by underlying need, linked original feedback,
+        comparison outcomes, and an owner-verified snapshot.
+        <strong>Status:</strong> accepted ADR; branch implementation for SUC-7,
+        which remains In Progress.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong>
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >
+        chooses persistence over a transient analysis response to enable reuse.
+        It requires a current verification record, a trusted ticket-finder seam,
+        and excludes bugs, fulfilled scope, existing tickets, and uncertainty
+        from SUC-8's new proposals.
+      </p>
+      <p>
+        <strong>Alternatives and trade-offs — mentor analysis:</strong>
+        recompute groups on every evaluation, or derive them from an immutable
+        event history. Recomputing avoids a stale candidate cache but can change
+        identities and duplicate proposals; an event log can preserve richer
+        history but increases schema and replay complexity. Persisted snapshots
+        simplify the handoff, while requiring explicit invalidation and
+        reevaluation rules. <strong>Limitations:</strong> current “same need”
+        comparison is exact text, snapshots contain reference strings rather
+        than commit/content hashes, and no complete candidate-history GET
+        exists.
+      </p>
+      <p>
+        Code:
+        <a href="../../src/workflow.ts"
+          >Candidate, InventoryVerification, analyzeFeedback</a
+        >. Tickets: <a href="tickets/SUC-7.html">7</a>,
+        <a href="tickets/SUC-8.html">8</a>,
+        <a href="tickets/SUC-15.html">15</a>.
+      </p>
+      <h2 id="auth">
+        D3 · Server-derived owner identity; feedback remains evidence
+      </h2>
+      <p>
+        <strong>Problem:</strong> a submitted owner ID or customer message
+        cannot authorize access or operations.
+        <strong>Selected approach:</strong> bearer tokens map to owners
+        server-side; every product operation checks ownership; accepted feedback
+        preserves text without executing it. Credentials are excluded by
+        validation. <strong>Status:</strong> implemented access checks, with
+        future build authority still planned.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> ADR 0001 and SUC-5 explicitly
+        require verified identity, product-scoped access, credential-free
+        records, and untrusted feedback.
+        <strong>Observed choice:</strong> environment JSON token mapping is the
+        current authenticator. No rationale selecting it over another
+        authentication system was recorded.
+      </p>
+      <p>
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> an
+        identity-provider session or signed token can support richer lifecycle
+        management; a small opaque-token map is simple to inspect and test but
+        has no implemented rotation UI, expiry, or separate roles. Regex
+        credential rejection catches known patterns but is not a general
+        secret-detection guarantee. Customer identity remains submitter-supplied
+        attribution, so stable identity provisioning needs policy.
+      </p>
+      <p>
+        Sources:
+        <a href="../../src/server.ts"
+          >OwnerAuthenticator and bearerTokenAuthenticator</a
+        >, <a href="../../src/start.ts">readTokenMapping</a>,
+        <a href="../../src/workflow.ts">productForOwner, rejectCredentials</a>;
+        SUC-6, 7, 10, 11.
+      </p>
+      <h2 id="storage">
+        D4 · One Node.js process, native HTTP, JSON-file persistence
+      </h2>
+      <p>
+        <strong>Problem:</strong> the implementation needs a running interface
+        and retained state. <strong>Observed approach:</strong> native
+        <code>node:http</code>, TypeScript run by Node, synchronous whole-file
+        JSON reads/writes, temporary file rename.
+        <strong>Status:</strong> current implementation; no accepted ADR
+        explains choosing this storage/runtime stack.
+      </p>
+      <p>
+        <strong>Why selected:</strong> not documented.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> a web
+        framework can supply routing/error conventions but adds dependencies;
+        native HTTP keeps the present surface small while leaving those concerns
+        handwritten. SQLite could supply transactional local storage; PostgreSQL
+        could support coordinated writers and richer queries; either requires
+        schema/migration/operational decisions. JSON is directly inspectable and
+        has little setup, but blocks on full-file I/O and has no multi-process
+        transaction/locking contract.
+      </p>
+      <p>
+        <strong>Risks and limits:</strong> rename is not a concurrency or backup
+        design; identical temporary filenames can conflict between processes;
+        state has no explicit schema version or full runtime validation. These
+        motivate storage questions before durable approval/attempt coordination,
+        not an instruction to replace storage during this learning task.
+      </p>
+      <p>
+        Sources: <a href="../../package.json">runtime/dependencies</a>,
+        <a href="../../tsconfig.json">compiler settings</a>,
+        <a href="../../src/workflow.ts">read/write</a>. Relevant tickets: SUC-6,
+        7, 10, 11, 13, 15.
+      </p>
+      <h2 id="integration">
+        D5 · Replaceable integrations, distinct declarations and activation
+      </h2>
+      <p>
+        <strong>Problem:</strong> the same workflow must operate across products
+        without tying business rules to one tracker, runner, or preview vendor.
+        <strong>Selected approach:</strong> configurable references and
+        replaceable integrations; a server-controlled ticket lookup seam exists
+        today. <strong>Status:</strong> documented direction; most adapters and
+        activation are planned.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> SUC-5 requires reuse across
+        products, and ADR 0001 separates capability declarations from actual
+        SUC-11 verification/activation. ADR 0002 requires the server-side finder
+        instead of trusting request-provided ticket matches. SUC-8 specifies
+        Linear as the first tracker, narrowing the parent specification for that
+        adapter.
+      </p>
+      <p>
+        <strong>Alternatives and trade-offs — mentor analysis:</strong>
+        hard-code one vendor for an initial end-to-end pilot, or define adapters
+        around each capability. Hard-coding reduces initial interface work but
+        spreads vendor assumptions; replaceable adapters require clear contracts
+        and error semantics. Do not create interfaces for imagined variation
+        without a concrete need.
+      </p>
+      <p>
+        <strong>Limits:</strong> current finder is synchronous and defaults to
+        <code>undefined</code>; no real lookup is wired in
+        <code>start.ts</code>. All configured integrations currently need both
+        declared limit capabilities, which may not fit non-runner adapters.
+        Capability-specific contracts and “lookup unavailable” handling remain
+        open. Sources:
+        <a href="../../src/workflow.ts"
+          >ExistingTicketFinder, IntegrationReference</a
+        >; ADRs 0001/0002; SUC-8, 11, 12, 15, 16.
+      </p>
+      <h2 id="demand">
+        D6 · Unique customers, current-week precedence, rolling fallback
+      </h2>
+      <p>
+        <strong>Problem:</strong> repeated messages should not inflate demand;
+        quieter weeks should not erase recent evidence.
+        <strong>Selected requirement:</strong> count each customer once per
+        candidate from eligible source records; current week first, rolling
+        window only when no current-week candidate crosses threshold. Defaults:
+        three customers and current week plus three preceding weeks,
+        configurable per product. <strong>Status:</strong> planned SUC-8/9.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> the SUC-5 problem statement
+        explicitly identifies repeat-message inflation and loss of accumulated
+        demand.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> message
+        counts reward volume; lifetime totals keep stale demand forever;
+        weighted recency may be nuanced but harder to explain. The specified
+        rule is auditable but sensitive to identity quality, calendar
+        boundaries, and a threshold that may fit some products poorly.
+      </p>
+      <p>
+        <strong>Limits:</strong> threshold/window fields are not in today's
+        ProductProfile; week start, inclusion boundaries, goal-alignment rubric
+        and scope estimate are not fully defined. No evaluator exists. Sources:
+        <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>,
+        <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>.
+      </p>
+      <h2 id="approval">
+        D7 · Version-bound approval and fresh approval after a stop
+      </h2>
+      <p>
+        <strong>Problem:</strong> qualification, ticket edits, and a resumed
+        attempt must not silently authorize additional scope or spending.
+        <strong>Selected requirement:</strong> only configured approver approval
+        of settled ticket scope/acceptance criteria authorizes implementation;
+        material edits invalidate it; stopped attempts require renewed approval.
+        <strong>Status:</strong> planned SUC-10/11/14.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> SUC-5 user stories 26, 27, 34
+        explicitly explain preventing reuse of old approval after changes and
+        keeping continuation deliberate.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> approve
+        a mutable ticket label, an immutable ticket revision, or a digest of
+        material fields. Labels are easy but can drift from approved content;
+        immutable revisions/digests are more precise but require a definition of
+        “material,” race handling, and external tracker synchronization.
+      </p>
+      <p>
+        <strong>Limits:</strong> no version algorithm, approval ledger, role
+        model, or invalidation protocol has been chosen in code. Approval
+        deadline semantics across later weekends also need precision. Sources:
+        <a href="tickets/SUC-10.html">SUC-10</a>,
+        <a href="tickets/SUC-14.html">SUC-14</a>.
+      </p>
+      <h2 id="attempt">
+        D8 · Bounded, deduplicated attempts with reviewable progress
+      </h2>
+      <p>
+        <strong>Problem:</strong> an autonomous ticket can consume unlimited
+        time/money or start twice on repeated events.
+        <strong>Selected requirement:</strong> measurable enforced
+        runtime/spending limits, budget checks before metered work, allowed time
+        window, one active approved attempt, and saved draft work on stops.
+        <strong>Status:</strong> planned SUC-11–14.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> SUC-5's problem statement and
+        execution decisions require bounded autonomous work and a reviewable
+        result before deployment.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong>
+        best-effort timers and after-the-fact spend reports are easy but do not
+        satisfy those enforcement requirements. A controlled runner with usage
+        reservation/cancellation and a durable attempt claim can provide
+        stronger guarantees, at the cost of adapter capability checks, crash
+        recovery, and coordination.
+      </p>
+      <p>
+        <strong>Limits:</strong> attempt schema, atomic reservation,
+        cancellation, usage reporting latency, currency/unit, and continuation
+        budgeting remain unresolved. Saving a draft can itself fail; runner
+        contract must specify recovery. Sources:
+        <a href="tickets/SUC-11.html">SUC-11</a>,
+        <a href="tickets/SUC-13.html">SUC-13</a>,
+        <a href="tickets/SUC-14.html">SUC-14</a>.
+      </p>
+      <h2 id="delivery">
+        D9 · Delivery, rather than merge, determines fulfillment
+      </h2>
+      <p>
+        <strong>Problem:</strong> merged code may not reach customers, and
+        shipped scope may satisfy only part of a request.
+        <strong>Selected requirement:</strong> verified release signal or
+        explicit owner confirmation; retain original feedback and audit links;
+        retire only satisfied scope and update inventory.
+        <strong>Status:</strong> planned SUC-15.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> SUC-5 user stories 18, 19, 36, 37
+        explicitly distinguish confirmed customer delivery, unmet extensions,
+        and current inventory.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> marking
+        every linked message fulfilled on merge is simpler but violates the
+        requirement and hides partial demand. Explicit evidence is more accurate
+        but introduces fulfillment interpretation, signal verification,
+        idempotency, and transactional update questions.
+      </p>
+      <p>
+        <strong>Limit:</strong> current candidate
+        <code>fulfilled</code> comparisons describe existing inventory; they are
+        not a delivery ledger. Sources:
+        <a href="tickets/SUC-15.html">SUC-15</a>,
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >.
+      </p>
+      <h2 id="testing">
+        D10 · Test observable workflow behavior with controlled integrations
+      </h2>
+      <p>
+        <strong>Problem:</strong> provider calls and real weekends make tests
+        slow and unstable; helper-call assertions can survive while product
+        behavior is wrong. <strong>Selected direction:</strong> test the
+        workflow's observable outputs, control external adapters and time, and
+        add adapter contract checks where needed. <strong>Status:</strong> HTTP
+        seam and controlled ticket finder implemented; controllable clock and
+        full orchestration coverage planned.
+      </p>
+      <p>
+        <strong>Documented rationale:</strong> SUC-5 proposes a controllable
+        clock to test windows and deadlines without waiting;
+        <a href="../../published-tickets.md">published-tickets.md</a> records
+        user approval of the included testing approach.
+        <strong>Alternatives and trade-offs — mentor analysis:</strong> test
+        every helper, or only use live integrations. Helpers may aid narrow
+        logic checks but should not replace workflow evidence; live integration
+        checks reveal compatibility but require authorization and repeatable
+        fixtures.
+      </p>
+      <p>
+        <strong>Limits:</strong> all seven current HTTP tests pass; they do not
+        establish crash recovery, restart persistence, all ownership
+        combinations, real integration behavior, or any planned end-to-end
+        build. Typechecking checks types, not runtime contracts. Sources:
+        <a href="../../test/server.test.ts">current tests</a>; SUC-6–16.
+      </p>
+      <h2 id="history">Decision history and unresolved design work</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Record</th>
+              <th>Preserved historical fact</th>
+              <th>Learning implication</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>ADR 0001, accepted; commit cf74807</td>
+              <td>
+                Persistent authenticated profile selected over a one-request
+                CLI.
+              </td>
+              <td>Read ticket amendments before older draft assumptions.</td>
+            </tr>
+            <tr>
+              <td>ADR 0002, accepted; current branch through b80de3d</td>
+              <td>
+                Durable candidate/verification contract and server-controlled
+                lookup seam.
+              </td>
+              <td>
+                Differentiate owner attestation, interpretation, and actual
+                integration verification.
+              </td>
+            </tr>
+            <tr>
+              <td>9 October 2026 learning baseline</td>
+              <td>
+                This page records observations and mentor analysis without
+                editing ADRs or changing decisions.
+              </td>
+              <td>
+                New durable decisions belong in ADR history when actually
+                resolved, then linked here.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Start with D1 and D2. Explain why persistence is valuable here, then
+        explain what persistence alone does <em>not</em> prove about permission,
+        freshness, or delivery. See
+        <a href="08-open-questions.html">open questions</a> for decisions that
+        cannot yet be taught as settled facts.
+      </p>
+      <footer>
+        Alternatives above are mentor analysis unless a source explicitly
+        records them. No new architecture decision was made by these learning
+        artifacts.
+      </footer>
+    </main>
+  </body>
+</html>

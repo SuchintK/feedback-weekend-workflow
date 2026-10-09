@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-13 — Schedule the approved weekend build reliably | Feedback workflow
+      learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-13: Schedule the approved weekend build reliably</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-13/schedule-the-approved-weekend-build-reliably"
+          >Read the original SUC-13 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 28, 29, 31.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A scheduler will encounter repeated events, restarts, late approval,
+          and local-time boundaries. It must evaluate proposals on the
+          configured schedule and start at most one small approved ticket for
+          each product’s weekend. A missed deadline should produce a visible
+          skip while retaining the unapproved proposal for reconsideration.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          This is a time-driven caller of the same guarded execution boundary
+          supplied by SUC-11. It must preserve SUC-10’s version-bound approval
+          and the product-scoped operating contract from
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>.
+          Reliable scheduling concerns durable decisions about attempts, not
+          just a cron expression.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Use configured proposal time, approval deadline, build window, and
+            timezone rather than hard-coded dates.
+          </li>
+          <li>
+            Retain unapproved proposals for reconsideration, but skip
+            implementation if the deadline is missed.
+          </li>
+          <li>
+            Recheck approval and ticket version at execution; process only one
+            small approved ticket per product per weekend.
+          </li>
+          <li>
+            Repeated scheduler events and restarts cannot start duplicate
+            attempts; schedule reporting makes skipped or started work visible.
+          </li>
+          <li>
+            Verify the scheduled approval-to-build path with a controllable
+            clock, including timezone boundaries, late approval, invalidated
+            approval, and repeated events.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-11.html">SUC-11</a>. Direct successors
+          blocked by this ticket: <a href="SUC-16.html">SUC-16</a>.
+        </p>
+        <p>
+          SUC-11 supplies enforced, retry-safe execution. SUC-8/9 and SUC-10
+          supply evaluation and current approval transitively; they are not
+          additional native direct blockers. SUC-16 needs proof that schedules
+          and attempts remain isolated across two products, including visible
+          started/skipped outcomes.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. Profile fields hold timezone, proposal
+          time, approval deadline, and build window, and readiness checks
+          require them for build configuration. No timer, weekend identity,
+          deadline decision, scheduler ledger, or restart recovery exists. A
+          stored time string does not demonstrate that the workflow schedules
+          anything.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, resolve product-local schedule boundaries using an
+          injectable clock, evaluate feedback at proposal time, and later decide
+          whether a current approved version can start before the deadline and
+          inside the build window. Persist a product/weekend decision so
+          repeated events reconcile with the same attempt. Reuse SUC-11’s checks
+          at execution instead of trusting an earlier scheduler check.
+        </p>
+        <p>
+          Weekend definition, missed-event catch-up, daylight-saving
+          ambiguities, exact deadline inclusivity, and coordination across
+          scheduler instances remain unresolved. Do not equate repeated-event
+          safety with a particular lock or queue implementation.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          <a href="../../../src/workflow.ts">src/workflow.ts</a> holds schedule
+          fields and readiness.
+          <a href="../../../src/start.ts">src/start.ts</a> is the existing
+          runtime startup seam; it currently starts only the HTTP server.
+          <a href="../../../src/server.ts">src/server.ts</a> and
+          <a href="../../../test/server.test.ts">test/server.test.ts</a> provide
+          the established observable boundary. Future scheduler module names are
+          undecided.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>timezone</code>, <code>proposalTime</code>,
+          <code>approvalDeadline</code>, and <code>buildWindow</code> directly,
+          plus <code>approver</code> for authority. The delegated evaluator and
+          executor consume goals, destination, repository, restrictions, limits,
+          and integrations. Product identity must participate in
+          schedule/attempt isolation.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> product-local weekend
+          identity, evaluation/deadline decision, started/skipped outcome with
+          reason, and linked approved version/attempt. Durable scheduling
+          records must survive restart, but their schema, coordination, and
+          event-processing design have not been approved.
+        </p>
+        <p>
+          <strong>Readiness:</strong> only build-ready products may enable
+          scheduled implementation under the SUC-6 amendment. At execution,
+          current approval, limits, and allowed window still apply. A deadline
+          miss skips implementation without deleting the proposal or making
+          future work implicitly approved.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Clock as Controllable clock
+  participant Scheduler as Proposed scheduler
+  participant Evaluation
+  participant Gate as SUC-11 execution gate
+  Clock-&gt;&gt;Scheduler: Product-local proposal time
+  Scheduler-&gt;&gt;Evaluation: Evaluate feedback
+  Clock-&gt;&gt;Scheduler: Weekend execution event
+  Scheduler-&gt;&gt;Scheduler: Check deadline, window, current approval, prior attempt
+  alt Start permitted
+    Scheduler-&gt;&gt;Gate: Start one approved ticket
+    Gate--&gt;&gt;Scheduler: Existing or new bounded attempt
+  else Start disallowed
+    Scheduler-&gt;&gt;Scheduler: Record skip and retain proposal
+  end</pre>
+          <figcaption>
+            Configured local times drive evaluation and a later start decision.
+            The scheduler records the result and delegates any permitted start
+            to the same guarded runner.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>Local calendar boundaries differ from fixed UTC durations.</li>
+          <li>
+            An at-most-one outcome requires durable reconciliation across
+            repeated events and restarts.
+          </li>
+          <li>
+            Execution-time revalidation protects against approval changes after
+            a scheduler decision.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          A cron job is a delivery mechanism but does not by itself prevent
+          duplicates or resolve missed deadlines. A persisted decision ledger
+          gives visibility and recovery at storage/coordination cost. Polling
+          and queued events are both plausible mechanisms; neither is selected.
+          The specified outcome matters more than assuming exactly-once event
+          delivery.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            Approval arrives after the configured deadline: retain the proposal
+            but skip that implementation window.
+          </li>
+          <li>
+            Approval is invalidated after scheduling: execution recheck must
+            deny the old version.
+          </li>
+          <li>
+            A scheduler restarts and receives the same event: do not start a
+            second attempt.
+          </li>
+          <li>
+            Two products share a timezone but have different windows: each must
+            use its own schedule and authority.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Drive the scheduled approval-to-build path using a controllable clock,
+          controlled evaluator/runner, and durable state across reconstructed
+          scheduler instances. Cover timezone/weekend boundaries, late approval,
+          invalidated approval, out-of-window starts, and repeated events.
+          Assert at most one small approved ticket per product/weekend and
+          visible skip/start reasons. Boundary expectations depend on resolving
+          the open calendar policy.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            Why is a cron expression insufficient to prove reliable scheduling?
+          </li>
+          <li>
+            What must be rechecked after a ticket was approved and scheduled?
+          </li>
+          <li>What happens to a proposal that misses the approval deadline?</li>
+          <li>
+            Which identity prevents a repeated weekend event from starting
+            twice?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-9.html">SUC-9</a>, <a href="SUC-10.html">SUC-10</a>,
+          <a href="SUC-11.html">SUC-11</a>, <a href="SUC-16.html">SUC-16</a>.
+          See the <a href="../08-open-questions.html">open questions</a> for
+          choices that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

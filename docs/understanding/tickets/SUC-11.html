@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-11 — Run one approved build within enforced limits | Feedback workflow
+      learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-11: Run one approved build within enforced limits</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-11/run-one-approved-build-within-enforced-limits"
+          >Read the original SUC-11 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 3, 27, 30, 31, 33, 35, 38, 39.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          An approved feature still needs a bounded execution environment. The
+          runner must target the configured repository, respect product
+          authority and restricted areas, enforce time and spending constraints,
+          and leave reviewable work when it stops. A declaration that an
+          integration supports limits does not prove those limits can be
+          measured and enforced.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          explicitly assigns integration verification and activation to SUC-11.
+          This ticket will join the planned version-bound approval contract from
+          SUC-10 with the durable operating profile from SUC-6. It introduces
+          the execution boundary consumed by review packaging and scheduling;
+          neither a readiness flag nor a tracker label grants authority alone.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Recheck ticket-version approval, complete build configuration,
+            product-scoped access, and restricted-area review before execution.
+          </li>
+          <li>
+            Use a controlled implementation runner for the configured
+            repository; preserve changes as a draft pull request and summarize
+            progress.
+          </li>
+          <li>
+            Enforce configured runtime, spending cap, and allowed build window;
+            check remaining budget before further metered work.
+          </li>
+          <li>
+            Only activate integrations capable of measuring and enforcing their
+            limits; stop and save progress when a limit is reached.
+          </li>
+          <li>
+            Prevent duplicate attempts for the same approved run; preserve
+            failures without deploying or merging.
+          </li>
+          <li>
+            Verify an approved run and denied, duplicate, exhausted-budget, and
+            exhausted-runtime runs through observable results and controlled
+            runner/usage integrations.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-10.html">SUC-10</a>. Direct successors
+          blocked by this ticket: <a href="SUC-12.html">SUC-12</a>,
+          <a href="SUC-13.html">SUC-13</a>.
+        </p>
+        <p>
+          SUC-10 supplies current approval evidence. SUC-6 is a related contract
+          provider, not an additional native blocker. SUC-12 needs draft
+          changes, progress, and execution results to build the review package.
+          SUC-13 needs a reusable guarded execution boundary and
+          duplicate-attempt protection so scheduled events cannot bypass the
+          same checks.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. The profile and readiness checks retain
+          repository branch, limits, restrictions, schedule, and declared
+          integration capabilities. There is no implementation runner,
+          capability activation, usage meter, runtime enforcement, attempt
+          ledger, or draft-PR integration. A complete
+          <code>buildReady</code> response therefore does not demonstrate an
+          enforceable build.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, validate current approval and configuration at the
+          execution boundary, verify integration enforcement capability, review
+          restricted-area policy, and persist an identifiable attempt before
+          external work. Before each metered step, check remaining runtime,
+          spending, and the allowed window. Save progress and a draft PR
+          reference on stop or failure. Reconcile repeated requests against the
+          same approved run rather than starting twice.
+        </p>
+        <p>
+          Runner selection, isolation, spend reservation for in-flight calls,
+          cancellation guarantees, attempt identity, and recovery after a crash
+          are unresolved. These choices need evidence and may warrant a future
+          ADR under repository guidance; this page does not settle them.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Start with profile readiness and integration declarations in
+          <a href="../../../src/workflow.ts">src/workflow.ts</a>, the owner
+          boundary in <a href="../../../src/server.ts">src/server.ts</a>, and
+          runtime wiring in <a href="../../../src/start.ts">src/start.ts</a>.
+          <a href="../../../test/server.test.ts">test/server.test.ts</a> is the
+          current test seam. No runner module path is approved.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>repository</code> identity/default branch,
+          <code>ticketDestination</code>, <code>approver</code>,
+          <code>validationInstructions</code>, <code>previewInstructions</code>,
+          <code>restrictedAreas</code>, <code>timezone</code>,
+          <code>proposalTime</code>, <code>approvalDeadline</code>,
+          <code>buildWindow</code>, <code>runtimeMinutes</code>,
+          <code>spendingLimit</code>, and scoped <code>integrations</code>.
+          Profile completeness is checked separately from current approval and
+          activated enforcement.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> an attempt record linking
+          product, approved ticket/version, execution identity, verified
+          integrations, start/stop outcome, resource usage, progress, and draft
+          PR. Duplicate prevention and recovery require a durable claim or
+          equivalent protocol, but its storage/locking design is not accepted
+          yet.
+        </p>
+        <p>
+          <strong>Readiness:</strong> consumes build-ready configuration and
+          current approval; verifies and activates declared integration
+          capabilities before work. Activation is not implemented and should not
+          be implied by existing readiness flags. Reaching a limit stops the
+          attempt and preserves work; it does not grant extra budget or
+          permission to merge/deploy.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  actor Owner
+  participant Gate as Proposed execution gate
+  participant Usage as Limit-enforcing integrations
+  participant Runner
+  participant Draft as Draft PR
+  Owner-&gt;&gt;Gate: Request approved build
+  Gate-&gt;&gt;Gate: Recheck version, profile, access, restrictions, duplicate run
+  Gate-&gt;&gt;Usage: Verify and activate enforceable limits
+  loop Before further metered work
+    Gate-&gt;&gt;Usage: Check time, window, remaining spend
+    Gate-&gt;&gt;Runner: Execute bounded step when allowed
+    Runner--&gt;&gt;Gate: Changes, progress, usage
+  end
+  Gate-&gt;&gt;Draft: Preserve changes and report on finish or stop</pre>
+          <figcaption>
+            Every build crosses the same approval and configuration gate, uses
+            verified limit enforcement, and preserves a draft plus progress when
+            work ends.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            A capability declaration is a configuration claim; activation
+            requires operational verification.
+          </li>
+          <li>
+            Retry safety needs a durable attempt identity that survives crashes.
+          </li>
+          <li>
+            A spending cap requires checking future metered work, not only
+            reporting cost after it happens.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Post-hoc usage reports are easy but cannot enforce the cap. A single
+          long runner call simplifies orchestration yet makes cancellation and
+          remaining-budget checks harder. Smaller controlled steps improve
+          observability at orchestration cost. In-memory duplicate flags are
+          insufficient across restarts; the durable protocol remains to be
+          chosen.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            Approval changed or configuration became incomplete before start:
+            deny execution.
+          </li>
+          <li>
+            An integration can report cost but cannot enforce its cap: do not
+            activate it.
+          </li>
+          <li>
+            A repeated start request targets the same approved run: preserve one
+            attempt.
+          </li>
+          <li>
+            Runtime, spending, or build window is exhausted: stop and save
+            changes rather than continuing or merging.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Drive approved and denied runs through an observable boundary with
+          controlled runner, usage, clock, and PR integrations. Simulate
+          duplicate starts, budget exhaustion before another call, runtime
+          exhaustion, out-of-window work, unsupported enforcement, and runner
+          failure after partial changes. Assert a reviewable draft/progress
+          result and no deploy or merge. Detailed crash recovery tests should
+          follow the chosen attempt protocol.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            Why does buildReady not establish that a runner can enforce its
+            limits?
+          </li>
+          <li>What must be rechecked immediately before execution?</li>
+          <li>
+            How can a spending check fail even when past usage is below the cap?
+          </li>
+          <li>What evidence must survive a stopped or duplicate run?</li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-6.html">SUC-6</a>, <a href="SUC-10.html">SUC-10</a>,
+          <a href="SUC-12.html">SUC-12</a>, <a href="SUC-13.html">SUC-13</a>,
+          <a href="SUC-14.html">SUC-14</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

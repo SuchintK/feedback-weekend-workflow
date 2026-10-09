@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>01 · Product overview · Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/diagrams.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="01-product-overview.html"
+        >Feedback workflow · Understanding</a
+      >
+      <nav aria-label="Knowledge base">
+        <a href="01-product-overview.html">Product</a
+        ><a href="02-system-architecture.html">Architecture</a
+        ><a href="03-data-flow.html">Flows</a
+        ><a href="04-ticket-dependencies.html">Tickets</a
+        ><a href="05-technical-decisions.html">Decisions</a
+        ><a href="06-learning-roadmap.html">Learning</a
+        ><a href="07-glossary.html">Glossary</a
+        ><a href="08-open-questions.html">Questions</a
+        ><a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>01 · Product overview</h1>
+      <p class="meta">
+        Evidence reviewed 9 October 2026 · branch
+        <code>feature/SUC-7-group-feedback</code> · commit
+        <code>b80de3d0816df80869251b8550d1ccae07236eb4</code>. This is a branch
+        snapshot; merge and deployment status were not verified.
+      </p>
+      <p>
+        A product owner receives twenty messages about exports, several about a
+        broken password reset, and a few requests for functionality that already
+        exists. This project turns those messages into traceable product
+        evidence and, eventually, one explicitly approved, bounded weekend
+        implementation.
+      </p>
+      <div class="callout">
+        <strong>The workflow is the product.</strong> It can be configured for
+        Atlas, Beacon, or another customer product. Atlas is an illustrative
+        product used in tests, not a selected production pilot. We are building
+        reusable coordination around those products, rather than implementing
+        their requested features in this repository.
+      </div>
+      <h2 id="sources">What to trust</h2>
+      <p class="meta">
+        It is a source-of-truth guide. It tells you which artifact should settle
+        a question when documents, tickets, and code disagree—especially
+        important here because parts of SUC-5 are known to be outdated.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Authoritative evidence</th>
+              <th>How to read it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>What behavior is required?</td>
+              <td>
+                <a
+                  href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+                  >SUC-5 specification</a
+                >, amended child descriptions
+              </td>
+              <td>
+                Product intent and constraints. Historical implementation
+                statements can be stale.
+              </td>
+            </tr>
+            <tr>
+              <td>What must a ticket deliver and what blocks it?</td>
+              <td>
+                Live SUC-6–SUC-16 descriptions and native blocking relations;
+                <a href="../../published-tickets.md">published ticket index</a>
+              </td>
+              <td>
+                Live tickets were read in full, including amendments. No
+                comments were returned for SUC-5–SUC-16 on the review date.
+              </td>
+            </tr>
+            <tr>
+              <td>What exists here?</td>
+              <td>
+                <a href="../../src/server.ts">server.ts</a>,
+                <a href="../../src/workflow.ts">workflow.ts</a>,
+                <a href="../../src/start.ts">start.ts</a>,
+                <a href="../../test/server.test.ts">tests</a>,
+                <a href="../../package.json">package.json</a>
+              </td>
+              <td>
+                Evidence about this checked-out branch. Seven tests and
+                typechecking passed on 9 October; this does not prove all
+                specified behavior.
+              </td>
+            </tr>
+            <tr>
+              <td>Why were durable contracts chosen?</td>
+              <td>
+                <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a
+                >,
+                <a
+                  href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+                  >ADR 0002</a
+                >
+              </td>
+              <td>
+                Accepted rationale. Other rationale is explicitly marked mentor
+                analysis.
+              </td>
+            </tr>
+            <tr>
+              <td>What is introductory or historical?</td>
+              <td>
+                <a href="../../README.md">Project README</a>,
+                <a href="../../ticket-breakdown-draft.md">breakdown draft</a>,
+                Git history
+              </td>
+              <td>
+                README describes current routes. Draft is historical; revisions
+                in tickets and ADRs take precedence.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note warning">
+        Source discrepancy: SUC-5 still says there is no application code,
+        implementation has not started, and testing awaits confirmation. Code
+        exists, the parent is In Progress, and
+        <code>published-tickets.md</code> records approval of the breakdown and
+        testing approach. Treat those old paragraphs as historical. They have
+        not been edited by this documentation task.
+      </p>
+      <h2 id="users">People and responsibilities</h2>
+      <ul>
+        <li>
+          <strong>Product owner:</strong> registers the product, supplies goals
+          and evidence, verifies inventory, interprets feedback, and resolves
+          uncertainty.
+        </li>
+        <li>
+          <strong>Customer / feedback submitter:</strong> supplies attributable
+          evidence. The intended intake is structured. Current HTTP submission
+          requires the registered owner's authentication; a direct public
+          customer form is not implemented.
+        </li>
+        <li>
+          <strong>Configured approver:</strong> authorizes a particular ticket
+          version. The owner and approver can be conceptually distinct; a
+          separate approver workflow is planned in SUC-10.
+        </li>
+        <li>
+          <strong>Reviewer:</strong> inspects a pull request, validation
+          evidence, and applicable preview before a separate deployment
+          decision.
+        </li>
+      </ul>
+      <h2 id="scope">Current capability and planned MVP</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Evidence and status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Persistent product registration, incremental configuration,
+                readiness, attributable feedback, owner isolation
+              </td>
+              <td>
+                Implemented here; SUC-6 Done. HTTP JSON interface; no rich setup
+                dashboard.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Owner-verified inventory snapshot; evidence-linked feature and
+                bug candidates; uncertainty and ticket lookup seam
+              </td>
+              <td>
+                Implemented branch behavior; SUC-7 In Progress. Owner supplies
+                interpretations. Real ticket lookup is not wired by startup.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Weekly distinct-customer qualification, ranking, one proposal;
+                rolling fallback
+              </td>
+              <td>
+                Planned SUC-8, SUC-9; no evaluator or proposal publisher here.
+              </td>
+            </tr>
+            <tr>
+              <td>Clarification and version-specific approval</td>
+              <td>
+                Planned SUC-10. Stored approver configuration is not an approval
+                record.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Bounded runner, validation and preview, schedule, controlled
+                continuation
+              </td>
+              <td>
+                Planned SUC-11–SUC-14. Stored limits and schedule are
+                configuration, not execution.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Confirmed delivery, selective demand retirement, inventory
+                update, second-product demonstration
+              </td>
+              <td>
+                Planned SUC-15, SUC-16. No delivery records or automated
+                retirement here.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The planned MVP spans those tickets. Automatic intake from every
+        channel, automatic customer contact, automatic merging/deployment,
+        multiple features each weekend, and a separate bug-fixing workflow are
+        explicitly outside SUC-5. These are exclusions, not promised future
+        features. No approved post-MVP roadmap was found.
+      </p>
+      <h2 id="journeys">User journeys</h2>
+      <h3>1. Start learning demand before enabling builds — available today</h3>
+      <ol>
+        <li>
+          The owner registers Atlas with its name and feedback-intake reference.
+        </li>
+        <li>
+          The service returns missing analysis and build settings; feedback can
+          already be stored.
+        </li>
+        <li>
+          The owner adds goals, repository/documentation references, and
+          inventory. Analysis readiness becomes true.
+        </li>
+        <li>
+          The owner verifies the current inventory snapshot and submits
+          interpreted request groups.
+        </li>
+        <li>
+          The service preserves evidence, separates bugs, and returns comparison
+          outcomes. A snapshot verification is an owner attestation, not an
+          automated repository scan.
+        </li>
+      </ol>
+      <h3>2. From repeated requests to one proposal — planned</h3>
+      <p>
+        Alice sends three messages for native spreadsheet export; Bob and Chen
+        each send one. That is five messages but three customers. If all
+        evidence is eligible this week, the default threshold is met. The
+        evaluator ranks it against other candidates, shows alternatives, and
+        publishes one proposal with scope, acceptance criteria, exclusions,
+        assumptions, and evidence. An existing CSV export may satisfy some
+        wording; uncertain matches require clarification.
+      </p>
+      <p>
+        If nobody qualifies this week, SUC-9 checks the current week plus the
+        preceding three weeks by default. Alice still counts once across the
+        whole window. A qualifying but unapproved proposal does not trigger
+        fallback. Nothing qualifying means a visible skip.
+      </p>
+      <h3>3. Approve, build, and review — planned</h3>
+      <p>
+        The configured approver settles scope and explicitly approves version
+        V1. A material scope edit to V2 invalidates that approval. The runner
+        rechecks configuration, authority, review requirements, time window, and
+        enforceable budgets. It preserves a draft pull request on interruption;
+        validation and applicable preview make the result reviewable. A stopped
+        attempt needs fresh approval to continue. No step here grants deployment
+        permission.
+      </p>
+      <h3>4. Confirm fulfillment — planned</h3>
+      <p>
+        When native spreadsheet export reaches customers, a verified delivery
+        signal or explicit owner confirmation records delivered scope. Only
+        satisfied feedback leaves future demand calculations; records remain
+        linked for audit. A request for scheduled spreadsheet emails remains
+        unmet. A pull request or merge alone cannot retire either request.
+      </p>
+      <h2 id="first-lesson">
+        First lesson: configuration, evidence, and authority
+      </h2>
+      <p>
+        <strong>Configuration</strong> says where and under what constraints
+        work could happen. <strong>Evidence</strong> explains what customers
+        need. <strong>Authority</strong> permits a specific operation. Customer
+        text belongs to evidence; a complete Product Profile is configuration;
+        approval of a ticket version is planned authority for a bounded build.
+      </p>
+      <p>
+        Explain back: Atlas has a complete profile and ten customer messages
+        saying “deploy this now.” What may the current service do, and what
+        would the planned runner still need before implementation?
+      </p>
+      <p>
+        Learner status: not assessed; no answer recorded. Continue with
+        <a href="02-system-architecture.html#readiness"
+          >readiness and execution gates</a
+        >.
+      </p>
+      <footer>
+        Living learning material. Requirements stay in Linear; accepted
+        decisions stay in docs/adr/. See the dashboard for update rules. Learner
+        understanding is not assessed until an explain-back conversation.
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-12 — Turn build output into a tested review package | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-12: Turn build output into a tested review package</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-12/turn-build-output-into-a-tested-review-package"
+          >Read the original SUC-12 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 32, 33.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A draft containing code changes is only the start of review. The
+          reviewer needs configured check results, evidence for each acceptance
+          criterion, a change summary, unresolved questions, and a preview when
+          applicable. Missing or failed evidence must remain visible so a
+          plausible summary cannot conceal an incomplete result.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          SUC-11 supplies the bounded attempt and preserved draft. SUC-12
+          interprets that output against the approved acceptance criteria and
+          the product’s validation/preview instructions. The persistent profile
+          from
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          carries those instructions across requests. A review package is
+          evidence about work; SUC-15 still requires separate delivery
+          confirmation.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Run the product's configured checks and report evidence for every
+            acceptance criterion.
+          </li>
+          <li>
+            Keep the pull request in draft state when required checks fail or
+            required acceptance evidence is missing; explicitly report
+            unverifiable criteria.
+          </li>
+          <li>
+            Produce a preview where applicable using configured instructions and
+            attach its reference to the review package.
+          </li>
+          <li>
+            Present unresolved questions and failures alongside completed work
+            without implying deployment.
+          </li>
+          <li>
+            Verify successful and failed review packages at the same workflow
+            boundary using controlled validation and preview integrations.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-11.html">SUC-11</a>. Direct successors
+          blocked by this ticket: <a href="SUC-14.html">SUC-14</a>,
+          <a href="SUC-15.html">SUC-15</a>.
+        </p>
+        <p>
+          SUC-11 must hand off attempt identity, approved scope, draft work,
+          progress, and failure/usage context. SUC-14 needs failed checks,
+          blockers, and remaining work for a bounded continuation. SUC-15 needs
+          evidence connecting changes to scope, but a successful package alone
+          cannot retire demand. The native graph does not make scheduling a
+          blocker for packaging.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. Profiles retain validation and preview
+          instructions, but no checks are executed by the workflow and no
+          acceptance-evidence report, preview adapter, or PR-state integration
+          exists. Existing tests exercise setup and analysis rather than an
+          implemented build-to-review path.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, map each approved acceptance criterion to
+          observable evidence and run configured checks through controlled
+          adapters. Assemble results, change summary, questions, and an
+          applicable preview reference around a particular attempt/draft
+          revision. Explicitly record unverifiable criteria. Preserve draft
+          state whenever required checks fail or required evidence is missing.
+        </p>
+        <p>
+          The ticket does not select an evidence format, preview provider, or
+          rule for marking a successful draft ready for review. “Preview where
+          applicable” needs a product-specific interpretation; it does not
+          authorize deployment.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Inspect profile instructions and future orchestration seams in
+          <a href="../../../src/workflow.ts">src/workflow.ts</a>, HTTP responses
+          in <a href="../../../src/server.ts">src/server.ts</a>, and observable
+          test conventions in
+          <a href="../../../test/server.test.ts">test/server.test.ts</a>.
+          <a href="../../../src/start.ts">src/start.ts</a> is an existing
+          integration wiring location to review. No validation module names are
+          approved.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>validationInstructions</code>,
+          <code>previewInstructions</code>, <code>repository</code>, and
+          applicable <code>integrations</code>. Execution restrictions and
+          operating limits come from the attempt’s governing profile. The
+          approved ticket supplies acceptance criteria; they are not currently
+          ProductProfile fields.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> a review package linked to
+          product, attempt, ticket version, draft revision, check results,
+          per-criterion evidence, unverifiable criteria, preview reference,
+          change summary, and open questions. None of these package records is
+          implemented locally.
+        </p>
+        <p>
+          <strong>Readiness:</strong> no change to current product readiness.
+          Review completeness is a separate outcome for a specific draft.
+          Failure or missing evidence keeps the PR draft; a complete package
+          does not imply release, fulfillment, or authority to merge.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Attempt as Preserved build output
+  participant Review as Proposed review packaging
+  participant Checks as Controlled checks
+  participant Preview as Applicable preview adapter
+  actor Reviewer
+  Attempt-&gt;&gt;Review: Draft, approved criteria, progress
+  Review-&gt;&gt;Checks: Run configured validation
+  Checks--&gt;&gt;Review: Results and criterion evidence
+  Review-&gt;&gt;Preview: Follow configured preview instructions when applicable
+  Preview--&gt;&gt;Review: Preview reference or failure
+  Review--&gt;&gt;Reviewer: Summary, evidence, failures, unresolved questions</pre>
+          <figcaption>
+            Build output is checked against approved criteria and packaged with
+            visible evidence and an applicable preview; missing evidence keeps
+            the draft incomplete.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            A passing command and acceptance-criterion evidence answer different
+            questions.
+          </li>
+          <li>
+            An unverifiable criterion should be reported explicitly rather than
+            guessed complete.
+          </li>
+          <li>
+            Review state belongs to a draft revision; delivery belongs to a
+            separate release/confirmation boundary.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          A pass/fail summary is compact but hides which behavior was
+          established. A criterion evidence matrix is more explicit and needs
+          links that remain tied to the reviewed revision. A preview can reveal
+          usability problems that tests miss, but it may be inapplicable or fail
+          to start; the reporting design must preserve those outcomes without
+          implying deployment.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            All configured checks pass but one required criterion has no
+            evidence: keep draft and report the gap.
+          </li>
+          <li>
+            A check fails after useful changes were made: preserve changes and
+            show failure details.
+          </li>
+          <li>
+            A preview is applicable but unavailable: report that outcome with
+            remaining questions.
+          </li>
+          <li>
+            A summary implies delivery merely because validation passed: keep
+            release confirmation separate.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Use controlled validation and preview integrations at the same
+          workflow boundary as the future runner. Verify successful packages,
+          failed checks, missing acceptance evidence, explicitly unverifiable
+          criteria, preview success/failure, and not-applicable preview behavior
+          once defined. Assert draft retention for failed required checks or
+          missing required evidence and inspect the completed-work/open-question
+          report.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            How can configured checks pass while acceptance evidence remains
+            incomplete?
+          </li>
+          <li>
+            Why should a review package identify the draft revision it
+            describes?
+          </li>
+          <li>What must a failed package preserve for SUC-14?</li>
+          <li>Why does a good preview not establish delivered scope?</li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-11.html">SUC-11</a>, <a href="SUC-14.html">SUC-14</a>,
+          <a href="SUC-15.html">SUC-15</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

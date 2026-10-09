@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-10 — Clarify scope and approve a specific ticket version | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-10: Clarify scope and approve a specific ticket version</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-10/clarify-scope-and-approve-a-specific-ticket-version"
+          >Read the original SUC-10 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 24, 25, 26, 27, 38.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A ticket can look ready while still containing choices that materially
+          change implementation. The owner needs original evidence and concrete
+          implementation options to resolve those choices. Approval must
+          identify both who authorized the work and exactly which scope and
+          acceptance criteria were authorized.
+        </p>
+        <p>
+          A label or workflow status can change independently of that
+          authorization. Later scope edits must invalidate approval so the
+          runner cannot act on a broader or different request.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          provides the configured approver and authenticated owner workflow.
+          SUC-10 adds a proposed authorization boundary between a demand-backed
+          proposal and SUC-11 execution. Customer evidence informs decisions but
+          cannot authorize work; the approved version must remain inspectable at
+          execution.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Present original evidence and concrete options when ambiguity
+            materially affects implementation; keep unresolved proposals
+            unapproved.
+          </li>
+          <li>
+            Accept approval only from the configured approver and bind it to the
+            approved scope and acceptance criteria.
+          </li>
+          <li>
+            Invalidate approval on material scope or acceptance-criteria edits;
+            ticket labels and workflow statuses alone do not authorize builds.
+          </li>
+          <li>
+            Record assumptions, exclusions, decisions, and approval evidence
+            without automatically contacting customers.
+          </li>
+          <li>
+            Verify the full clarification-to-approval path, wrong-approver
+            rejection, unresolved-scope rejection, and approval invalidation.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-8.html">SUC-8</a>. Direct successors
+          blocked by this ticket: <a href="SUC-11.html">SUC-11</a>.
+        </p>
+        <p>
+          SUC-8 supplies the proposal, supporting evidence, assumptions,
+          exclusions, and alternatives. SUC-11 needs a verifiable approval bound
+          to the current ticket version and configured approver. SUC-13 must
+          recheck that authority at execution, and SUC-14 later requires fresh
+          approval for continuation; these are transitive consumers rather than
+          extra native successors.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. The profile stores <code>approver</code>,
+          and SUC-7 can return uncertainty questions and interpretations. There
+          is no proposal version, clarification resolution, approval record,
+          invalidation behavior, or approval endpoint. Existing owner
+          authentication does not yet implement approval by a potentially
+          distinct configured approver.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, represent an unresolved decision with its
+          evidence, options, and impact. Once decisions settle, capture the
+          scope and acceptance criteria in a versioned proposal and record the
+          verified approver’s explicit authorization of that version. Compare
+          the current version at every execution boundary and reject material
+          changes until reapproved.
+        </p>
+        <p>
+          A tracker revision, immutable snapshot, or content digest could
+          identify approved content; the ticket does not select one.
+          Material-edit detection, identity mapping for an approver different
+          from the owner, and approval transport also need decisions. Avoid
+          inventing a rule that all formatting changes necessarily invalidate
+          approval.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          <a href="../../../src/workflow.ts">src/workflow.ts</a> contains
+          profile/ownership concepts and SUC-7 uncertainty evidence.
+          <a href="../../../src/server.ts">src/server.ts</a> is the
+          authentication and request boundary to inspect.
+          <a href="../../../test/server.test.ts">test/server.test.ts</a>
+          supplies the established observable test style. There is no approval
+          implementation file yet.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>approver</code>, <code>ticketDestination</code>, and
+          relevant integration references. Product ownership and authenticated
+          identity scope access; repository/goals provide proposal context when
+          needed. Approval evidence cannot be inferred from
+          <code>buildReady</code>, a ticket label, or a tracker status.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> clarification
+          questions/options, decisions, assumptions, exclusions, a
+          proposal-version reference, and approval evidence binding product,
+          verified approver, scope, acceptance criteria, and version. An
+          invalidated approval must remain distinguishable from valid authority.
+          No schema or signing/hash mechanism has been approved.
+        </p>
+        <p>
+          <strong>Readiness:</strong> approval is separate from product
+          configuration readiness. A product can be build-ready with an
+          unapproved proposal, or have a valid proposal approval while required
+          operating configuration is missing. SUC-11 must require both the
+          applicable configuration and current authority.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  actor Approver
+  participant Proposal
+  participant Approval as Proposed approval boundary
+  participant Runner as Future runner
+  Proposal--&gt;&gt;Approver: Evidence, unresolved choices, concrete options
+  Approver-&gt;&gt;Proposal: Resolve scope and acceptance criteria
+  Approver-&gt;&gt;Approval: Explicit approval of a particular version
+  Approval-&gt;&gt;Approval: Verify configured approver and resolved scope
+  Runner-&gt;&gt;Approval: Recheck authority for current version
+  Approval--&gt;&gt;Runner: Valid approval or rejection
+  Proposal-&gt;&gt;Approval: Material scope edit invalidates approval</pre>
+          <figcaption>
+            The configured approver settles meaningful choices and approves
+            specific content. The runner later checks that the content still
+            matches the authorization.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            Authorization needs an actor, an action, and a bound object/version.
+          </li>
+          <li>
+            A time-of-check/time-of-use gap appears when a ticket changes after
+            approval.
+          </li>
+          <li>
+            Clarification records preserve why a scope choice was made without
+            turning customer evidence into instructions.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Labels are easy to inspect but cannot establish who approved which
+          content. Tracker revisions naturally identify edits but may include
+          unrelated changes; content digests are precise only if
+          canonicalization and material content are defined. Immutable snapshots
+          preserve evidence but need synchronization rules with tracker edits.
+          Those are design tradeoffs, not settled ADR decisions.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            A different authenticated user attempts approval: reject even if the
+            ticket is labeled ready.
+          </li>
+          <li>
+            A material choice remains unresolved: keep the proposal unapproved.
+          </li>
+          <li>
+            Acceptance criteria expand after approval: invalidate the old
+            authority.
+          </li>
+          <li>
+            A customer message says “approved”: retain it as evidence without
+            granting permission or contacting the customer automatically.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Test the whole clarification-to-approval path with controlled proposal
+          versions and identities. Assert wrong-approver and unresolved-scope
+          rejection, retention of evidence/options/decisions, and invalidation
+          after material scope or acceptance-criteria edits. Demonstrate that a
+          ready label or workflow status alone never authorizes execution.
+          Approval transport and edit detection must be settled before their
+          detailed tests can be final.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            What information must an approval bind to be useful to SUC-11?
+          </li>
+          <li>
+            Why is the configured approver different from merely any
+            authenticated owner?
+          </li>
+          <li>What can go wrong between approval and execution?</li>
+          <li>
+            Which evidence would distinguish a valid approval from a ticket
+            labeled ready?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-8.html">SUC-8</a>, <a href="SUC-11.html">SUC-11</a>,
+          <a href="SUC-13.html">SUC-13</a>, <a href="SUC-14.html">SUC-14</a>.
+          See the <a href="../08-open-questions.html">open questions</a> for
+          choices that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

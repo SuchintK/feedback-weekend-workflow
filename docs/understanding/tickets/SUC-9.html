@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-9 — Accumulate demand only when the current week is quiet | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-9: Accumulate demand only when the current week is quiet</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-9/accumulate-demand-only-when-the-current-week-is-quiet"
+          >Read the original SUC-9 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 12, 13, 14, 15.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A useful feature may gather demand slowly across several weeks.
+          Fallback makes that demand visible while preserving current-week
+          precedence. The trigger depends on whether any current-week candidate
+          crosses the demand threshold, regardless of whether its proposal has
+          been approved.
+        </p>
+        <p>
+          Three weekly counts cannot simply be added: one customer can appear in
+          every week. The rolling calculation must return to eligible original
+          records and count unique customers across the whole window.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          This extends the SUC-8 evaluation policy without changing
+          <a href="../../adr/0002-persist-evidence-backed-candidate-analysis.md"
+            >ADR 0002</a
+          >
+          candidate eligibility. Original feedback and stable customer identity
+          make cross-week recalculation possible. Publication, ranking, and
+          duplicate prevention must remain the same workflow behavior as
+          current-week selection.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Trigger fallback only when no current-week candidate crosses the
+            threshold, regardless of ticket approval state.
+          </li>
+          <li>
+            Default to the current week plus the preceding three weeks; make the
+            window configurable.
+          </li>
+          <li>
+            Recalculate distinct customers across underlying eligible records
+            instead of adding weekly totals; exclude evidence outside the
+            window.
+          </li>
+          <li>
+            Use the same proposal, ranking, and duplicate-prevention behavior as
+            current-week selection.
+          </li>
+          <li>
+            Verify current-week precedence, boundary dates, repeated customers
+            across weeks, overlapping evaluations, and no-demand outcomes using
+            a controllable clock.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-8.html">SUC-8</a>. Direct successors
+          blocked by this ticket: <a href="SUC-16.html">SUC-16</a>.
+        </p>
+        <p>
+          SUC-8 supplies a trustworthy current-week qualification result and
+          reusable selection/publication behavior. SUC-16 must demonstrate
+          fallback while operating two isolated products. SUC-9 is not a native
+          blocker for SUC-10 or SUC-13; their graph should not be silently
+          expanded.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. There is no current-week or rolling
+          evaluator and no demand-window profile field. Durable feedback dates
+          and customer IDs are available, but saving those fields does not
+          implement rolling selection. Existing analysis accepts owner
+          interpretations and does not perform weekly demand calculations.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, first evaluate the current week using SUC-8’s
+          eligibility and threshold policy. Only a result with no qualifying
+          candidate should enter fallback. Compute a product-local interval for
+          the configured number of weeks, read original eligible records, build
+          customer-ID sets per candidate, and invoke the same ranking and
+          publication path. Return an explanation that identifies the interval
+          and distinct customers.
+        </p>
+        <p>
+          The default contains four weeks total, including the current one. Week
+          start, endpoint inclusivity, daylight-saving behavior, valid
+          configuration bounds, and handling of changes between repeated
+          evaluations require decisions. Do not invent a new profile field name
+          as an accepted contract.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Inspect evidence dates, candidates, and profile types in
+          <a href="../../../src/workflow.ts">src/workflow.ts</a>. The existing
+          observable boundary is
+          <a href="../../../src/server.ts">src/server.ts</a> with tests in
+          <a href="../../../test/server.test.ts">test/server.test.ts</a>. No
+          fallback implementation or future module path exists to link.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>timezone</code>, <code>goals</code>,
+          <code>ticketDestination</code>, and applicable
+          <code>integrations</code> through the shared evaluator/publisher.
+          Threshold and rolling-window configuration are required by the tickets
+          but absent from the current profile. Approval status is not a fallback
+          input.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> an evaluation explanation
+          could retain the current-week result, whether fallback ran, rolling
+          interval, distinct-customer evidence, and the shared proposal
+          reference. A separate weekly-total accumulator is unnecessary for the
+          required calculation and cannot replace underlying evidence. No
+          evaluation schema is accepted yet.
+        </p>
+        <p>
+          <strong>Readiness:</strong> no current readiness change. Fallback adds
+          a selection policy, not build authority. It must not run merely
+          because approval is missing, and it cannot bypass SUC-10 approval or
+          SUC-11 enforcement.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Evaluation as Proposed evaluation
+  participant Evidence
+  participant Publisher as Shared proposal publisher
+  Evaluation-&gt;&gt;Evidence: Read eligible current-week records
+  Evidence--&gt;&gt;Evaluation: Distinct-customer qualification
+  alt Any current-week candidate qualifies
+    Evaluation-&gt;&gt;Publisher: Use current-week selection
+  else None qualifies
+    Evaluation-&gt;&gt;Evidence: Read current plus preceding three weeks by default
+    Evaluation-&gt;&gt;Evaluation: Recompute customer sets over the full window
+    Evaluation-&gt;&gt;Publisher: Use shared ranking and publish or report no demand
+  end</pre>
+          <figcaption>
+            Current-week demand gets first consideration. Only an empty
+            qualification result opens the rolling window, where customers are
+            counted again from original records.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            Set union across original evidence avoids counting the same customer
+            once per week.
+          </li>
+          <li>
+            Precedence is an explicit policy branch, not a preference added to a
+            score.
+          </li>
+          <li>
+            A replayable interval explanation lets an owner understand why a
+            candidate qualified.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Adding weekly totals is cheap but overcounts customers who repeat
+          themselves. Always evaluating the rolling window could hide
+          current-week precedence and violates the fallback trigger. Reusing
+          SUC-8’s publication behavior reduces divergence, while caching results
+          would need freshness and overlapping-window rules that are not
+          specified.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            A current-week candidate qualifies but remains unapproved: fallback
+            must stay off.
+          </li>
+          <li>
+            The same customer appears in three weeks: count once over the
+            rolling window.
+          </li>
+          <li>
+            A record lies just outside the configured window: exclude it even if
+            an earlier evaluation counted it.
+          </li>
+          <li>
+            Overlapping evaluations select the same candidate: preserve shared
+            duplicate prevention rather than creating another proposal.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          With a controllable clock, construct records at both interval
+          boundaries and across timezone changes. Compare repeated customers
+          across weeks against distinct customers. Assert a qualifying
+          current-week candidate suppresses fallback regardless of approval, the
+          default covers current plus three preceding weeks, and configuration
+          changes the interval. Repeated/overlapping runs must reuse publication
+          behavior and visibly report no-demand outcomes.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            Why is an unapproved current-week proposal not a reason to use
+            fallback?
+          </li>
+          <li>Why can four weekly customer counts overstate rolling demand?</li>
+          <li>What does the default four-week interval include?</li>
+          <li>
+            Which behavior should SUC-9 reuse from SUC-8 instead of implementing
+            independently?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-8.html">SUC-8</a>, <a href="SUC-13.html">SUC-13</a>,
+          <a href="SUC-16.html">SUC-16</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
