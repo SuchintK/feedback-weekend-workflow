@@ -9,6 +9,20 @@ token-to-owner mapping, for example `WORKFLOW_AUTH_TOKENS='{"opaque-token":"owne
 Credentials are never accepted in product profiles, feedback, or tickets. Product records retain
 repository context, goals, inventory, workflow instructions, operational limits, and readiness status.
 
+## Configuration
+
+For local development, copy [`.env.example`](.env.example) to `.env` and replace the example token:
+
+```sh
+cp .env.example .env
+npm start
+```
+
+The application loads `.env` before it reads configuration. Shell and deployment environment variables
+take precedence over `.env`, so existing commands and production configuration continue to work. Current
+settings are `PORT`, `WORKFLOW_DATA_DIRECTORY`, and required `WORKFLOW_AUTH_TOKENS`; future code can read
+additional variables from `process.env` after startup initialization.
+
 The service currently provides these JSON routes:
 
 - `POST /products` registers a product profile.
