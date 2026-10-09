@@ -295,5 +295,3 @@ The owner configures a second product and demonstrates that the same workflow op
 ### Source user stories
 
 1, 2, 3, 39.
-
-
