@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glossary — Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Documentation">
+        <a href="01-product-overview.html">Overview</a>
+        <a href="02-system-architecture.html">Architecture</a>
+        <a href="03-data-flow.html">Flows</a>
+        <a href="04-ticket-dependencies.html">Tickets</a>
+        <a href="05-technical-decisions.html">Decisions</a>
+        <a href="06-learning-roadmap.html">Learning</a>
+        <a href="07-glossary.html" aria-current="page">Glossary</a>
+        <a href="08-open-questions.html">Questions</a>
+        <a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1 id="glossary">Glossary</h1>
+      <p>
+        Domain meanings appear separately from examples and implementation
+        notes. The technical vocabulary and component index support learning the
+        code; they do not redefine the product domain.
+      </p>
+      <p>
+        <strong>Evidence baseline:</strong> 2026-10-09, HEAD
+        <code>b80de3d</code>, branch <code>feature/SUC-7-group-feedback</code>.
+        During discovery, all seven existing tests and typechecking passed. Live
+        issue status: SUC-6 Done, SUC-7 In Progress, SUC-8–16 Backlog. PR merge
+        and deployment are unverified.
+      </p>
+      <p>
+        <a href="#domain-terms">Domain terms</a> ·
+        <a href="#technical-terms">Technical terms</a> ·
+        <a href="#components">Components</a> ·
+        <a href="06-learning-roadmap.html#explain-back-lessons"
+          >Explain-back lessons</a
+        >
+        · <a href="08-open-questions.html">Open questions</a>
+      </p>
+
+      <h2 id="domain-terms">Domain terms</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Meaning, example, and current implementation are distinct
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Term</th>
+              <th scope="col">Meaning</th>
+              <th scope="col">Example</th>
+              <th scope="col">Implementation and ticket context</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="product">
+              <th scope="row">Product</th>
+              <td>
+                The unit of workflow configuration, feedback, and ownership.
+              </td>
+              <td>Atlas has its own goals and feedback evidence.</td>
+              <td>
+                <a href="../../src/workflow.ts">Product</a> has id, name,
+                ownerId, and profile;
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>.
+              </td>
+            </tr>
+            <tr id="owner">
+              <th scope="row">Owner</th>
+              <td>
+                The verified actor authorized to manage a registered product.
+              </td>
+              <td>owner-atlas may inspect Atlas.</td>
+              <td>
+                <a href="../../src/server.ts">ownerFrom</a> derives identity
+                through the authenticator;
+                <a href="../../src/workflow.ts">productForOwner</a> checks exact
+                owner equality. Use “owner,” not “customer,” for this authority;
+                SUC-6.
+              </td>
+            </tr>
+            <tr id="customer">
+              <th scope="row">Customer</th>
+              <td>
+                The person or organization whose feedback expresses product
+                demand.
+              </td>
+              <td>customer-42 requests spreadsheet exports.</td>
+              <td>
+                <a href="../../src/workflow.ts">Feedback.customerId</a> is
+                caller-supplied evidence, not an authenticated workflow
+                principal. Stable identity will matter to distinct-customer
+                counting in
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>.
+              </td>
+            </tr>
+            <tr id="product-profile">
+              <th scope="row">Product profile</th>
+              <td>
+                The durable configuration describing a product's context and
+                operating constraints.
+              </td>
+              <td>
+                Goals, repository references, inventory, approver, and limits.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">ProductProfile</a> permits
+                incremental completion; feedbackIntake is required at
+                registration.
+                <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a
+                >; SUC-6.
+              </td>
+            </tr>
+            <tr id="feedback-intake">
+              <th scope="row">Feedback intake</th>
+              <td>The configured source of a product's feedback.</td>
+              <td>“intercom” identifies the intake.</td>
+              <td>
+                Currently a required text field; no intake connector is
+                activated. Feedback enters through authenticated HTTP
+                submission; SUC-6.
+              </td>
+            </tr>
+            <tr id="feedback">
+              <th scope="row">Feedback</th>
+              <td>
+                A traceable original customer message retained as evidence.
+              </td>
+              <td>
+                “Please export reports to a spreadsheet,” with customer, source,
+                and date.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">Feedback, submitFeedback</a>
+                preserve originalText and generate per-product sequential IDs.
+                No submission deduplication is implemented; SUC-6/7.
+              </td>
+            </tr>
+            <tr id="source-reference">
+              <th scope="row">Source reference</th>
+              <td>A locator connecting feedback to its original source.</td>
+              <td><code>intercom:conversation:987</code></td>
+              <td>
+                <a href="../../src/workflow.ts">sourceReferencePattern</a>
+                accepts a colon-separated identifier grammar, not an arbitrary
+                URL; SUC-6.
+              </td>
+            </tr>
+            <tr id="inventory">
+              <th scope="row">Inventory</th>
+              <td>The product's declared existing functionality.</td>
+              <td>CSV export.</td>
+              <td>
+                <a href="../../src/workflow.ts">ProductProfile.inventory</a> is
+                a non-empty list of text when supplied; no repository scanner
+                generates it.
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>.
+              </td>
+            </tr>
+            <tr id="inventory-verification">
+              <th scope="row">Inventory verification</th>
+              <td>
+                The owner's acknowledgement of the inventory against repository
+                and documentation evidence.
+              </td>
+              <td>
+                The owner acknowledges CSV export with the configured repository
+                and README reference.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">verifyInventory</a> stores
+                owner/product IDs, URL, inventory items, and documentation
+                references. There is no commit hash or remote-content
+                verification; SUC-7,
+                <a
+                  href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+                  >ADR 0002</a
+                >.
+              </td>
+            </tr>
+            <tr id="analysis-readiness">
+              <th scope="row">Analysis readiness</th>
+              <td>
+                Completeness of the configured context required for analysis.
+              </td>
+              <td>
+                Goals, repository identity, documentation references, and
+                inventory are present.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >analysisRequirements, readiness</a
+                >
+                compute analysisReady. Current inventory verification is an
+                additional analyzeFeedback gate; the flag itself does not
+                establish freshness; SUC-6/7.
+              </td>
+            </tr>
+            <tr id="build-readiness">
+              <th scope="row">Build readiness</th>
+              <td>
+                Completeness of declared configuration required before build
+                activation can be considered.
+              </td>
+              <td>
+                The profile includes branch, approver, instructions, schedule,
+                restrictions, limits, and integrations.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">buildOnlyRequirements</a> adds
+                predicates to analysis readiness. It does not establish
+                approval, verified integrations, or an available runner;
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>
+                remains Backlog.
+              </td>
+            </tr>
+            <tr id="underlying-need">
+              <th scope="row">Underlying need</th>
+              <td>The product outcome shared by one or more requests.</td>
+              <td>Export reports in a spreadsheet-compatible format.</td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >CandidateInput.underlyingNeed</a
+                >
+                is supplied by the owner; reuse compares exact strings. There is
+                no semantic normalization or AI grouping engine; SUC-7.
+              </td>
+            </tr>
+            <tr id="candidate">
+              <th scope="row">Candidate</th>
+              <td>
+                A durable interpretation of a need linked to supporting
+                feedback.
+              </td>
+              <td>spreadsheet-export links two original requests.</td>
+              <td>
+                <a href="../../src/workflow.ts">Candidate, analyzeFeedback</a>
+                store key, need, kind, feedback IDs, and optional match. Feature
+                and bug are separate kinds; SUC-7.
+              </td>
+            </tr>
+            <tr id="feature-candidate">
+              <th scope="row">Feature candidate</th>
+              <td>A candidate for new or extended product functionality.</td>
+              <td>Add native spreadsheet export beyond existing CSV export.</td>
+              <td>
+                Each feature input requires a comparison outcome.
+                <a href="../../src/workflow.ts">asFeatureCandidate</a> returns
+                match details and original evidence; SUC-7, later SUC-8.
+              </td>
+            </tr>
+            <tr id="bug">
+              <th scope="row">Bug</th>
+              <td>A candidate describing a failure of expected behavior.</td>
+              <td>Password reset returns an error.</td>
+              <td>
+                Owner-supplied kind; matches are optional.
+                <a href="../../src/workflow.ts">asBugCandidate</a> returns key,
+                need, and evidence without match or existing-ticket details;
+                SUC-7.
+              </td>
+            </tr>
+            <tr id="fulfillment-match">
+              <th scope="row">Fulfillment match</th>
+              <td>
+                The comparison between a candidate need and existing
+                functionality.
+              </td>
+              <td>CSV export may satisfy some spreadsheet requests.</td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >MatchDisposition, validateMatch</a
+                >
+                validate the owner's supplied comparison. Ticket lookup is
+                separate; SUC-7.
+              </td>
+            </tr>
+            <tr id="unmet">
+              <th scope="row">Unmet</th>
+              <td>
+                The need remains unsatisfied by the compared functionality.
+              </td>
+              <td>No saved report filters exist.</td>
+              <td>
+                <code>unmet</code> is a match disposition. Future proposal
+                eligibility also requires no checked existing ticket; SUC-7/8.
+              </td>
+            </tr>
+            <tr id="fulfilled">
+              <th scope="row">Fulfilled</th>
+              <td>Existing functionality satisfies the compared need.</td>
+              <td>CSV download satisfies a request for CSV download.</td>
+              <td>
+                <code>fulfilled</code> requires an existingFunctionality value
+                exactly present in verified inventory; SUC-7. This comparison is
+                distinct from future delivery confirmation in SUC-15.
+              </td>
+            </tr>
+            <tr id="unmet-extension">
+              <th scope="row">Unmet extension</th>
+              <td>
+                An additional need beyond existing functionality that remains
+                unsatisfied.
+              </td>
+              <td>CSV exists, but native XLSX output is still requested.</td>
+              <td>
+                <code>unmet-extension</code> requires a referenced inventory
+                item; SUC-7/8.
+              </td>
+            </tr>
+            <tr id="uncertain">
+              <th scope="row">Uncertain</th>
+              <td>A comparison whose fulfillment cannot yet be settled.</td>
+              <td>Does “spreadsheet export” mean CSV or native XLSX?</td>
+              <td>
+                <code>uncertain</code> requires a non-empty clarification
+                question and suggested interpretations. It does not trigger a
+                customer message or approval; SUC-7, later
+                <a href="https://linear.app/suchint/issue/SUC-10">SUC-10</a>.
+              </td>
+            </tr>
+            <tr id="existing-ticket">
+              <th scope="row">Existing ticket</th>
+              <td>
+                A previously tracked work item addressing the candidate's need.
+              </td>
+              <td>SUC-42 tracks spreadsheet export.</td>
+              <td>
+                <a href="../../src/workflow.ts">ExistingTicketFinder</a>
+                supplies id/title server-side. Startup currently uses a finder
+                returning undefined; no ticket existence check is performed
+                there. A ticket is not proof of delivery; SUC-7/8.
+              </td>
+            </tr>
+            <tr id="integration-declaration">
+              <th scope="row">Integration declaration</th>
+              <td>
+                Configuration describing an external capability intended for the
+                workflow.
+              </td>
+              <td>
+                A runner endpoint declares runtime-limit and spending-limit
+                capabilities.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >IntegrationReference, hasDeclaredLimitCapabilities</a
+                >
+                check URL and strings. Verification and activation are future
+                SUC-11 behavior, not established by the declaration.
+              </td>
+            </tr>
+            <tr id="demand">
+              <th scope="row">Demand</th>
+              <td>
+                Customer support for an eligible feature within an evaluation
+                period.
+              </td>
+              <td>Three distinct customers support one feature this week.</td>
+              <td>
+                Future
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+                counts customers, not messages;
+                <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a> adds
+                fallback. Threshold and rolling-window fields are absent from
+                ProductProfile.
+              </td>
+            </tr>
+            <tr id="proposal">
+              <th scope="row">Proposal</th>
+              <td>A scoped feature recommendation presented for a decision.</td>
+              <td>
+                A ticket describes spreadsheet export, evidence, acceptance
+                criteria, and exclusions.
+              </td>
+              <td>
+                Future SUC-8 publication behavior; no proposal record or route
+                exists at this baseline.
+              </td>
+            </tr>
+            <tr id="approval">
+              <th scope="row">Approval</th>
+              <td>
+                Explicit authorization by the configured approver for a
+                particular scope version.
+              </td>
+              <td>The approver accepts version 3 of a ticket's scope.</td>
+              <td>
+                Future SUC-10; a configured approver string or buildReady flag
+                is not approval evidence.
+              </td>
+            </tr>
+            <tr id="attempt">
+              <th scope="row">Build attempt</th>
+              <td>One bounded execution of approved implementation work.</td>
+              <td>
+                An approved run stops at its runtime limit and preserves
+                progress.
+              </td>
+              <td>
+                Future SUC-11;
+                <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>
+                adds fresh approval and distinct continuation attempts.
+              </td>
+            </tr>
+            <tr id="review-package">
+              <th scope="row">Review package</th>
+              <td>
+                The evidence and output a reviewer needs to assess
+                implementation work.
+              </td>
+              <td>
+                A draft PR, validation results, acceptance evidence, and preview
+                reference.
+              </td>
+              <td>
+                Future
+                <a href="https://linear.app/suchint/issue/SUC-12">SUC-12</a>; no
+                validation or preview executor is implemented.
+              </td>
+            </tr>
+            <tr id="delivery">
+              <th scope="row">Delivery</th>
+              <td>
+                Verified availability of implemented scope that satisfies
+                identified demand.
+              </td>
+              <td>
+                The owner confirms that released XLSX export satisfies linked
+                requests.
+              </td>
+              <td>
+                Future
+                <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>; a
+                merge or draft PR alone does not confirm delivery.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="technical-terms">Technical learning terms</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            General engineering terms used to explain this implementation
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Term</th>
+              <th scope="col">Meaning</th>
+              <th scope="col">Example and component</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">HTTP route</th>
+              <td>A method and URL pattern mapped to an operation.</td>
+              <td>
+                <a href="../../src/server.ts">createWorkflowServer</a> maps POST
+                /products/:id/analysis to analyzeFeedback. Unknown method/path
+                combinations return 404.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Authentication / authorization</th>
+              <td>
+                Authentication identifies the caller; authorization decides
+                access to a resource.
+              </td>
+              <td>
+                <code>bearerTokenAuthenticator</code> resolves a token;
+                <code>productForOwner</code> compares product ownership. Missing
+                verified identity gives 401; wrong owner gives 403.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Bearer token</th>
+              <td>
+                A credential presented by the caller to establish identity.
+              </td>
+              <td>
+                <a href="../../src/start.ts">WORKFLOW_AUTH_TOKENS</a> maps
+                opaque tokens to owner IDs;
+                <a href="../../src/server.ts">bearerTokenAuthenticator</a>
+                matches the Bearer header. These are server configuration, not
+                product-profile fields.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Dependency injection / seam</th>
+              <td>
+                A boundary where a caller supplies a behavior instead of
+                hard-coding it.
+              </td>
+              <td>
+                <code>OwnerAuthenticator</code> and synchronous
+                <code>ExistingTicketFinder</code> are function seams; tests
+                inject a controlled ticket finder.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Runtime validation</th>
+              <td>Checks on actual values received while the program runs.</td>
+              <td>
+                <a href="../../src/server.ts">asProfile</a> rejects unknown
+                profile keys;
+                <a href="../../src/workflow.ts">validateMatch</a> checks
+                inventory references. Types alone do neither.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">TypeScript / typecheck</th>
+              <td>Static checking of program types before execution.</td>
+              <td>
+                <a href="../../tsconfig.json">strict, noEmit</a>;
+                <code>npm run typecheck</code>. Analysis result arrays are typed
+                unknown[], limiting typed result consumers.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">ESM / NodeNext</th>
+              <td>
+                JavaScript module conventions and matching TypeScript module
+                resolution.
+              </td>
+              <td>
+                <a href="../../package.json">type: module</a>,
+                <a href="../../tsconfig.json">module: NodeNext</a>, explicit .ts
+                imports, and Node ≥24 execute erasable TypeScript directly.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Persistence / serialization</th>
+              <td>
+                Keeping state across process lifetimes by encoding it for
+                storage.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">write</a> serializes the whole
+                StoredWorkflow as JSON. Restart behavior is intended by this
+                design but not tested in the current suite.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Atomic replacement</th>
+              <td>
+                Replacing a visible file through a rename after preparing its
+                replacement.
+              </td>
+              <td>
+                <code>workflow.json.tmp</code> is written then renamed. This
+                pattern does not by itself provide fsync-based durability,
+                reader transactions, or multiple-writer coordination.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Locking / concurrency</th>
+              <td>Coordination of overlapping access to shared state.</td>
+              <td>
+                Synchronous operations keep one event-loop operation contiguous,
+                but there is no cross-process lock around read/modify/write.
+                Concurrent-writer behavior is unverified, not an observed
+                incident.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Snapshot / freshness</th>
+              <td>
+                A captured set of evidence values, and whether it still matches
+                the required current evidence.
+              </td>
+              <td>
+                <code>inventoryEvidence</code> captures URL and ordered strings.
+                <code>hasCurrentInventoryVerification</code> compares those
+                strings, not repository commits or content.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Idempotency / deduplication</th>
+              <td>
+                Idempotency makes repeat operations have no additional intended
+                effect; deduplication recognizes repeated records.
+              </td>
+              <td>
+                Analysis reuses exact matching needs and unions feedback IDs.
+                Feedback POST always appends. Neither establishes future
+                scheduler or proposal idempotency.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">HTTP error semantics</th>
+              <td>
+                The meaning assigned to response status and error payload.
+              </td>
+              <td>
+                <a href="../../src/server.ts">catch block</a> preserves
+                WorkflowError.status; generic errors become 400 with their
+                message. <code>validateExistingTicket</code> uses 502 for
+                invalid ticket fields.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Integration test / test double</th>
+              <td>
+                A test across connected components; a controlled substitute for
+                an external behavior.
+              </td>
+              <td>
+                <a href="../../test/server.test.ts">withServer</a> uses HTTP and
+                file storage; a supplied finder returns SUC-42 without a tracker
+                call.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Time window / currency contract</th>
+              <td>Explicit rules for time boundaries and monetary units.</td>
+              <td>
+                Timezone and HH:MM readiness predicates exist; week start,
+                build-window grammar, and spending currency are unsettled. See
+                <a href="08-open-questions.html#p0-time-money">open contracts</a
+                >.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="components">Component and interface index</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Locate the code responsible for a concept
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Component</th>
+              <th scope="col">Responsibility and public surface</th>
+              <th scope="col">Boundary to remember</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row"><a href="../../src/start.ts">start.ts</a></th>
+              <td>
+                Reads WORKFLOW_DATA_DIRECTORY (default .data), PORT (default
+                3000), and required WORKFLOW_AUTH_TOKENS; listens on 127.0.0.1.
+              </td>
+              <td>
+                No exported API; does not wire a real finder. Invalid token
+                mapping fails startup.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><a href="../../src/server.ts">server.ts</a></th>
+              <td>
+                Exports createWorkflowServer, bearerTokenAuthenticator,
+                OwnerAuthenticator, and re-exports ExistingTicketFinder.
+                Provides six JSON routes plus a public HTML placeholder at /.
+              </td>
+              <td>
+                Factory authentication defaults to denial; default finder
+                returns undefined. HTTP parsing is stricter than calling typed
+                Workflow methods directly.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row"><a href="../../src/workflow.ts">Workflow</a></th>
+              <td>
+                Public operations: registerProduct, updateProductProfile,
+                submitFeedback, inspectProduct, verifyInventory,
+                analyzeFeedback. Owns validation, authorization, readiness, and
+                file persistence.
+              </td>
+              <td>
+                Owner ID is trusted input at this internal boundary.
+                inspectProduct returns product/readiness/feedback, not
+                candidates; analysis returns candidates submitted in that call.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="../../src/workflow.ts">Exported domain types</a>
+              </th>
+              <td>
+                RepositoryContext, IntegrationReference, ProductProfile,
+                Product, Feedback, Readiness, MatchDisposition, ExistingTicket,
+                ExistingTicketFinder, CandidateInput, AnalysisInput; also
+                isMatchDisposition and WorkflowError.
+              </td>
+              <td>
+                Candidate, CandidateMatch, InventoryVerification, and
+                StoredWorkflow are internal types. Readiness is computed rather
+                than persisted.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="../../src/workflow.ts"
+                  >StoredWorkflow and file helpers</a
+                >
+              </th>
+              <td>
+                Four collections: products, feedback, candidates,
+                inventoryVerifications. read defaults missing collections; write
+                replaces the complete file.
+              </td>
+              <td>
+                No schema version, stored-shape validation, migration runner,
+                locking, backup policy, or fsync protocol is implemented.
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <a href="../../test/server.test.ts">server.test.ts</a>
+              </th>
+              <td>
+                Seven HTTP scenarios use temporary storage, bearer identities,
+                fetch, and a controlled finder.
+              </td>
+              <td>
+                No restart, multi-process, real tracker, full buildReady, or
+                downstream lifecycle test is present.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="maintenance-impact">Maintenance impact map</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Keep meanings stable and implementation notes current
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Change</th>
+              <th scope="col">Glossary impact</th>
+              <th scope="col">Cross-page follow-up</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>New or revised domain contract</td>
+              <td>
+                Review the meaning independently from the implementation column;
+                mark unresolved vocabulary explicitly.
+              </td>
+              <td>
+                <a href="06-learning-roadmap.html#foundations">Foundations</a>;
+                <a href="08-open-questions.html#p0-contracts"
+                  >contract questions</a
+                >; Decisions
+              </td>
+            </tr>
+            <tr>
+              <td>Finder, readiness, storage, or route change</td>
+              <td>
+                Update technical examples and component boundaries; retain
+                source references.
+              </td>
+              <td>
+                <a href="06-learning-roadmap.html#implementation"
+                  >Implementation lessons</a
+                >; Architecture; Flows
+              </td>
+            </tr>
+            <tr>
+              <td>Backlog lifecycle behavior implemented</td>
+              <td>
+                Replace future labels only after checking source and relevant
+                tests.
+              </td>
+              <td>
+                <a href="06-learning-roadmap.html#future-workflow"
+                  >Future workflow</a
+                >; <a href="08-open-questions.html">Questions</a>; Tickets
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="change-history">Change history</h2>
+      <p>
+        <time datetime="2026-10-09">2026-10-09</time>: created the HTML glossary
+        with separate domain meanings, implementation examples, technical terms,
+        and component references at b80de3d. No root GLOSSARY.md or ADR was
+        created.
+      </p>
+      <h2 id="sources">Sources</h2>
+      <p>
+        <a href="../../src/workflow.ts">workflow.ts</a>,
+        <a href="../../src/server.ts">server.ts</a>,
+        <a href="../../src/start.ts">start.ts</a>,
+        <a href="../../test/server.test.ts">server.test.ts</a>,
+        <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a>,
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >, <a href="../../published-tickets.md">published ticket record</a>, and
+        <a href="04-ticket-dependencies.html">live ticket requirements</a>. Live
+        statuses were checked against Linear; passing checks and source behavior
+        were verified in the local repository.
+      </p>
+    </main>
+    <footer>
+      <p>
+        <a href="06-learning-roadmap.html">Learning roadmap</a> ·
+        <a href="08-open-questions.html">Next: open questions</a> ·
+        <a href="README.md">Dashboard</a>
+      </p>
+    </footer>
+  </body>
+</html>

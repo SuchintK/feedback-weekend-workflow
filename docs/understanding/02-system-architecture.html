@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>02 · System architecture · Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/diagrams.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="01-product-overview.html"
+        >Feedback workflow · Understanding</a
+      >
+      <nav aria-label="Knowledge base">
+        <a href="01-product-overview.html">Product</a
+        ><a href="02-system-architecture.html">Architecture</a
+        ><a href="03-data-flow.html">Flows</a
+        ><a href="04-ticket-dependencies.html">Tickets</a
+        ><a href="05-technical-decisions.html">Decisions</a
+        ><a href="06-learning-roadmap.html">Learning</a
+        ><a href="07-glossary.html">Glossary</a
+        ><a href="08-open-questions.html">Questions</a
+        ><a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>02 · System architecture</h1>
+      <p class="meta">
+        Evidence reviewed 9 October 2026 · branch
+        <code>feature/SUC-7-group-feedback</code> · commit
+        <code>b80de3d0816df80869251b8550d1ccae07236eb4</code>. This is a branch
+        snapshot; merge and deployment status were not verified.
+      </p>
+      <p>
+        The current application is one Node.js process with an HTTP adapter, one
+        workflow module, and one JSON state file. The planned architecture
+        extends that workflow with evaluation, approval, execution, scheduling,
+        review, and delivery responsibilities. The specification does not
+        require those responsibilities to become independently deployed
+        services.
+      </p>
+      <h2 id="current">Current architecture — implemented on this branch</h2>
+      <figure>
+        <pre class="mermaid">
+flowchart TD
+  O["Authenticated owner / HTTP client"] --> H["server.ts: routes, JSON validation, authentication"]
+  C["start.ts: environment and dependency wiring"] --> H
+  H --> W["workflow.ts: ownership, readiness, feedback, inventory, candidates"]
+  W --> J[("workflow.json: products, feedback, candidates, verifications")]
+  W --> F["ExistingTicketFinder interface"]
+  F --> N["Startup default: returns undefined"]
+  T["HTTP tests with controlled token map and ticket finder"] --> H
+</pre>
+        <figcaption>
+          The owner calls the HTTP adapter. Workflow enforces rules and
+          reads/writes the state file. Ticket lookup is injectable, but standard
+          startup supplies no real external lookup.
+        </figcaption>
+      </figure>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Module / dependency</th>
+              <th>Responsibility and why it exists</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Startup</td>
+              <td>
+                Reads the token-to-owner map, data directory, and port; composes
+                the server. Keeps deployment configuration outside feedback.
+              </td>
+              <td>
+                <a href="../../src/start.ts">start.ts</a>;
+                <code>WORKFLOW_AUTH_TOKENS</code>,
+                <code>WORKFLOW_DATA_DIRECTORY</code>, <code>PORT</code>.
+                Defaults: <code>.data</code>, 3000, loopback bind.
+              </td>
+            </tr>
+            <tr>
+              <td>HTTP adapter</td>
+              <td>
+                Parses requests, derives owner from verified bearer token,
+                validates payload shapes, selects a workflow operation,
+                serializes responses.
+              </td>
+              <td>
+                <a href="../../src/server.ts">createWorkflowServer</a>,
+                <code>bearerTokenAuthenticator</code>. Authentication defaults
+                to denial if no authenticator is supplied.
+              </td>
+            </tr>
+            <tr>
+              <td>Workflow module</td>
+              <td>
+                Owns business rules: product access, credential checks,
+                readiness, evidence linkage, inventory verification, candidate
+                reuse. Centralizes invariants across requests.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">Workflow</a>. Storage and rules
+                currently share this module.
+              </td>
+            </tr>
+            <tr>
+              <td>JSON persistence</td>
+              <td>
+                Retains context between requests. Reads a full snapshot; writes
+                a temporary file then renames it.
+              </td>
+              <td>
+                <code>Workflow.read/write</code>. Four arrays in
+                <code>StoredWorkflow</code>. No database server, ORM, queue, or
+                migration framework in package configuration.
+              </td>
+            </tr>
+            <tr>
+              <td>Ticket lookup seam</td>
+              <td>
+                Lets the trusted server supply an existing-ticket match rather
+                than accepting a client's asserted ticket ID.
+              </td>
+              <td>
+                <code>ExistingTicketFinder(product, underlyingNeed)</code>;
+                synchronous function. Controlled adapter in tests; default
+                returns <code>undefined</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Native test runner and TypeScript</td>
+              <td>
+                Exercise observable HTTP outcomes and check types without a
+                framework or transpilation build.
+              </td>
+              <td>
+                <a href="../../package.json">package.json</a>,
+                <a href="../../tsconfig.json">tsconfig.json</a>,
+                <a href="../../test/server.test.ts">test/server.test.ts</a>.
+                Node &gt;=24; installed runtime checked as v26.3.0.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="interfaces">Public interfaces and communication</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>HTTP request</th>
+              <th>Workflow operation</th>
+              <th>Successful response</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>POST /products</code></td>
+              <td><code>registerProduct</code></td>
+              <td>201 product + readiness</td>
+            </tr>
+            <tr>
+              <td><code>PATCH /products/:id</code></td>
+              <td><code>updateProductProfile</code></td>
+              <td>200 product + readiness</td>
+            </tr>
+            <tr>
+              <td><code>POST /products/:id/feedback</code></td>
+              <td><code>submitFeedback</code></td>
+              <td>201 feedback record</td>
+            </tr>
+            <tr>
+              <td><code>GET /products/:id</code></td>
+              <td><code>inspectProduct</code></td>
+              <td>
+                200 product + readiness + feedback; candidates are not included
+              </td>
+            </tr>
+            <tr>
+              <td><code>POST /products/:id/inventory-verification</code></td>
+              <td><code>verifyInventory</code></td>
+              <td>
+                200 reviewed inventory + repository URL + documentation
+                references
+              </td>
+            </tr>
+            <tr>
+              <td><code>POST /products/:id/analysis</code></td>
+              <td><code>analyzeFeedback</code></td>
+              <td>
+                200 inventory + submitted feature candidates + bugs, each with
+                original evidence
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Each operation is request/response; no event bus or background worker is
+        implemented. <code>GET /</code> is a public explanatory HTML page. Every
+        product route requires authentication, including feedback intake. The
+        root page is not a product setup form.
+      </p>
+      <h2 id="data-model">Persistent data relationships</h2>
+      <figure>
+        <pre class="mermaid">
+flowchart LR
+  P["Product: id, name, ownerId, profile"] --> R["ProductProfile: repository, goals, inventory, operating configuration"]
+  P --> F["Feedback: productId, customerId, originalText, sourceReference, receivedAt"]
+  P --> V["InventoryVerification: owner, inventory, repository URL, documentation refs"]
+  P --> C["Candidate: key, exact underlyingNeed, kind, match"]
+  C -->|"feedbackIds"| F
+</pre>
+        <figcaption>
+          Product identity scopes every stored record. Candidates refer to
+          feedback IDs, keeping interpretation separate from the customer's
+          original words. These are logical relationships in a JSON file, not
+          SQL tables.
+        </figcaption>
+      </figure>
+      <p>
+        A candidate can reference several messages. Reuse compares candidate key
+        or exact supplied underlying-need text within the product; there is no
+        semantic similarity engine. A single analysis request disallows
+        assigning a feedback ID twice. Across separate analyses, the code does
+        not enforce one global candidate assignment for every feedback ID. The
+        desired treatment of a message containing several needs remains an open
+        question.
+      </p>
+      <h2 id="readiness">
+        Readiness is configuration; execution has additional gates
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Signal</th>
+              <th>Current meaning</th>
+              <th>Additional evidence / planned gate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Registered</td>
+              <td>Identity, verified owner, feedback intake recorded.</td>
+              <td>
+                May collect feedback with incomplete analysis/build
+                configuration.
+              </td>
+            </tr>
+            <tr>
+              <td>Analysis-ready</td>
+              <td>
+                Goals, repository identity/URL, documentation references,
+                nonempty inventory present.
+              </td>
+              <td>
+                Analysis additionally needs a matching owner-verified inventory
+                snapshot. Readiness itself does not assert verification
+                freshness.
+              </td>
+            </tr>
+            <tr>
+              <td>Build-ready</td>
+              <td>
+                Analysis settings plus default branch, ticket destination,
+                approver, validation/preview instructions, restrictions,
+                timezone/schedule, positive runtime/spending limits, declared
+                integration capabilities.
+              </td>
+              <td>
+                SUC-10/11/13 still require version-specific approval, actual
+                enforceability/activation, allowed time, policy review, and
+                duplicate prevention. No build operation exists today.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Current build readiness requires preview instructions even though the
+        product spec describes previews “where applicable.” Each configured
+        integration must declare both <code>runtime-limit</code> and
+        <code>spending-limit</code>. These are current validation rules, not
+        evidence that a real runner can honor them. Schedule times receive basic
+        validation; <code>buildWindow</code> is only nonempty text.
+      </p>
+      <h2 id="planned">
+        Planned workflow architecture — responsibilities, not approved file
+        layout
+      </h2>
+      <figure>
+        <pre class="mermaid">
+flowchart TD
+  A["Intake and profile: SUC-6 implemented"] --> B["Analysis: SUC-7 branch implementation"]
+  B --> E["Evaluation and one proposal: SUC-8/9 planned"]
+  E --> AP["Clarification and ticket-version approval: SUC-10 planned"]
+  AP --> RUN["Bounded build: SUC-11 planned"]
+  SCH["Schedule: SUC-13 planned"] --> E
+  SCH --> RUN
+  RUN --> REV["Validation, preview, review: SUC-12 planned"]
+  REV --> STOP["Stopped work and reapproval: SUC-14 planned"]
+  STOP -->|"fresh approval"| RUN
+  REV --> DEL["Confirmed delivery: SUC-15 planned"]
+  DEL -->|"update inventory; exclude satisfied evidence"| B
+  DEL --> E
+  EXT["Replaceable ticket, repository/runner, usage, validation, preview, delivery adapters"] -.-> RUN
+  EXT -.-> E
+  EXT -.-> DEL
+</pre>
+        <figcaption>
+          Evidence becomes a proposal, then approved work, then review
+          artifacts. Only confirmed delivery changes fulfilled demand.
+          Scheduling invokes the same rules; it does not grant approval.
+        </figcaption>
+      </figure>
+      <p>
+        SUC-5 specifies replaceable integrations without selecting AI, hosting,
+        or runner vendors. SUC-8 specifically calls for Linear as the first
+        proposal tracker. The fact that this project's own planning uses Linear
+        does not mean the application currently connects to Linear. GitHub PR
+        links are implementation-work evidence, not an implemented application
+        runner.
+      </p>
+      <h2 id="boundaries">Architectural boundaries worth learning</h2>
+      <ul>
+        <li>
+          <strong>Evidence and authority:</strong> feedback may contain
+          instructions, but it is stored as text and cannot alter profile
+          configuration or grant build permission.
+        </li>
+        <li>
+          <strong>Owner identity and customer identity:</strong> the bearer
+          token identifies the operator; <code>customerId</code> attributes
+          evidence. A customer ID is not login authority.
+        </li>
+        <li>
+          <strong>Workflow and adapters:</strong> shared decisions should not
+          depend on a tracker or preview vendor. Only a ticket-finder seam is
+          implemented; other integration interfaces remain design work.
+        </li>
+        <li>
+          <strong>Current and delivered scope:</strong> an inventory match
+          during analysis is different from the future delivery ledger that
+          retires feedback.
+        </li>
+        <li>
+          <strong>Review and release:</strong> building, testing, and opening a
+          PR prepare review; they do not authorize deployment.
+        </li>
+      </ul>
+      <h2 id="limits">Limits of this implementation</h2>
+      <p>
+        File replacement reduces exposure to a partially written JSON
+        destination, but does not supply multi-process transactions, file
+        locking, backup, or power-loss durability guarantees. Synchronous
+        full-file I/O can block the Node event loop as data grows. Persisted
+        JSON is cast to types without full schema validation. The HTTP adapter
+        reports unclassified errors as 400; storage outages are not separately
+        modeled as server errors.
+      </p>
+      <p>
+        Inventory verification compares URL, ordered item strings, and ordered
+        documentation-reference strings. It does not capture a repository commit
+        or fetch file contents. A real async ticket adapter also needs a
+        suitable interface; the current finder is synchronous. These are
+        <a href="08-open-questions.html">design questions</a>, not changes made
+        by this task.
+      </p>
+      <h2 id="code-tour">Suggested code tour</h2>
+      <ol>
+        <li>
+          <code>start.ts</code>: locate trusted inputs and dependency wiring.
+        </li>
+        <li>
+          <code>server.ts</code>: trace
+          <code>POST /products/:id/analysis</code> through authentication and
+          shape validation.
+        </li>
+        <li>
+          <code>workflow.ts</code>: read types and requirements, then
+          <code>analyzeFeedback</code>, <code>productForOwner</code>,
+          <code>read/write</code>.
+        </li>
+        <li>
+          <code>test/server.test.ts</code>: compare the grouping test's
+          submitted interpretations with the returned evidence.
+        </li>
+      </ol>
+      <p>
+        Explain back: why can a product be analysis-ready while analysis still
+        returns 409? See the
+        <a href="03-data-flow.html#analysis">analysis sequence</a> before
+        answering.
+      </p>
+      <footer>
+        Living learning material. Requirements stay in Linear; accepted
+        decisions stay in docs/adr/. See the dashboard for update rules. Learner
+        understanding is not assessed until an explain-back conversation.
+      </footer>
+    </main>
+  </body>
+</html>

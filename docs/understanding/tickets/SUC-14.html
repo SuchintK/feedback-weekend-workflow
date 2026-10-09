@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-14 — Report stopped work and resume only with fresh approval |
+      Feedback workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-14: Report stopped work and resume only with fresh approval</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-14/report-stopped-work-and-resume-only-with-fresh-approval"
+          >Read the original SUC-14 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 33, 34.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A stopped attempt can contain useful changes while leaving failed
+          checks, scope blockers, or exhausted limits. The owner needs an honest
+          report and concrete decisions before more work begins. Resuming is
+          another authorized attempt, not an automatic retry that quietly
+          extends the old permission or budget.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          SUC-12 supplies the review evidence and unfinished-work report.
+          SUC-10’s version-bound authority and SUC-11’s bounded execution remain
+          relevant when a continuation starts. The persistent operating contract
+          in
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          still governs repository access, restrictions, schedule, and limits.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Preserve draft work and report completed changes, failed checks,
+            blockers, remaining work, and resource usage.
+          </li>
+          <li>
+            Stop on scope expansion or requirements that materially change
+            implementation, with concrete decisions requested from the owner.
+          </li>
+          <li>
+            Require fresh approval before continuation; material scope changes
+            require approval of the revised ticket version.
+          </li>
+          <li>
+            Assign a distinct continuation attempt, validate applicable
+            execution limits, and prevent duplicate resumptions.
+          </li>
+          <li>
+            Verify stop-to-report-to-reapproval-to-resume behavior, including
+            failed checks, exhausted limits, scope expansion, and attempted
+            unapproved continuation.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-12.html">SUC-12</a>. Direct successors
+          blocked by this ticket: <a href="SUC-16.html">SUC-16</a>.
+        </p>
+        <p>
+          SUC-12 must provide a reviewable draft and explicit
+          failed/unverifiable evidence. SUC-14 hands SUC-16 a demonstrable
+          stopped-attempt and authorized-continuation path across isolated
+          product contexts. Approval and execution are transitive contracts; the
+          native direct blocker remains SUC-12.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. There are no build attempts, stop reports,
+          continuation records, fresh-approval checks, or duplicate-resumption
+          controls. Existing profile limits are configuration only, and the
+          current server provides setup/analysis rather than an implemented
+          resume endpoint.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, preserve the original attempt outcome and draft,
+          then present completed work, remaining work, failed checks, resource
+          use, and specific scope decisions. Require a new explicit approval for
+          continuation, including approval of a revised ticket version if scope
+          materially changes. Link a distinct continuation attempt to the
+          stopped attempt and route it through the same guarded runner.
+        </p>
+        <p>
+          The budget model for continuations is unresolved: per-attempt,
+          per-weekend, cumulative, or another policy cannot be silently chosen.
+          Fresh approval does not by itself define new limits or an exception to
+          the scheduler’s at-most-one rule. That interaction belongs in the open
+          questions.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Inspect limits, profile ownership, and persistence in
+          <a href="../../../src/workflow.ts">src/workflow.ts</a>, authenticated
+          requests in <a href="../../../src/server.ts">src/server.ts</a>, and
+          test conventions in
+          <a href="../../../test/server.test.ts">test/server.test.ts</a>.
+          Runtime integration wiring would involve the existing
+          <a href="../../../src/start.ts">src/start.ts</a> seam. No continuation
+          module path is established.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>approver</code>, <code>repository</code>,
+          <code>restrictedAreas</code>, <code>timezone</code>,
+          <code>buildWindow</code>, <code>runtimeMinutes</code>,
+          <code>spendingLimit</code>, and relevant <code>integrations</code>.
+          Validation/preview instructions remain relevant to the continued work
+          and next review. Current approval/version and prior usage come from
+          proposed attempt records, not existing profile fields.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> an immutable or otherwise
+          auditable stopped-attempt outcome, progress/draft reference, failed
+          checks, blockers, usage, remaining work, continuation approval, and a
+          distinct linked continuation identity. Exact schema, attempt lineage,
+          and concurrency protocol are not approved.
+        </p>
+        <p>
+          <strong>Readiness:</strong> a stopped attempt does not make a profile
+          ready or unready automatically. Continuation requires fresh authority
+          and applicable configuration/limits at the time of execution. Material
+          scope change invalidates the relevance of an old version’s approval; a
+          retry request cannot stand in for reapproval.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Attempt as Stopped attempt
+  actor Owner
+  participant Approval as Fresh approval boundary
+  participant Runner as Bounded execution
+  Attempt--&gt;&gt;Owner: Draft, progress, failures, blockers, usage
+  Owner-&gt;&gt;Approval: Resolve scope and approve continuation
+  Approval-&gt;&gt;Approval: Verify authority and revised version when needed
+  Approval-&gt;&gt;Runner: Distinct linked continuation request
+  Runner-&gt;&gt;Runner: Validate limits and reject duplicate resumption
+  Runner--&gt;&gt;Owner: Preserved continuation outcome</pre>
+          <figcaption>
+            The owner reviews a preserved stop report, grants fresh authority,
+            and starts a distinct bounded continuation whose identity prevents
+            duplicate resumptions.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            A retry repeats an operation; continuation authorizes additional
+            work after a meaningful stop.
+          </li>
+          <li>
+            Attempt lineage explains which approval and resource usage belong to
+            each piece of work.
+          </li>
+          <li>
+            A scope blocker should become an explicit owner decision rather than
+            an undocumented implementation assumption.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Automatically restarting is convenient but violates fresh-approval
+          requirements. Reusing the original attempt identity hides additional
+          work and complicates audit. Distinct linked attempts preserve history
+          but require clear budget and weekend policy. Copying the old cap into
+          every attempt could unintentionally bypass an overall spending
+          constraint; the policy is not settled.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            A failed check prompts automatic continuation without approval: deny
+            the new work.
+          </li>
+          <li>
+            A scope expansion is discovered: stop and request concrete choices
+            before proceeding.
+          </li>
+          <li>
+            Two resume requests reference one continuation approval: prevent
+            duplicate attempts.
+          </li>
+          <li>
+            A previous cap was exhausted: fresh approval alone must not be
+            treated as proof of applicable remaining allowance.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Use controlled runner, usage, approval, and validation integrations to
+          exercise stop → report → reapproval → resume. Cover failed checks,
+          exhausted runtime/spend, material scope expansion, wrong/unapproved
+          continuation, and duplicate resumes. Assert draft preservation, a
+          distinct linked attempt, explicit owner decisions, and enforcement of
+          the eventual continuation-limit policy. Use a controllable clock for
+          window-sensitive cases.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>How does continuation differ from retrying a failed request?</li>
+          <li>
+            Why does a material scope change require a revised ticket-version
+            approval?
+          </li>
+          <li>
+            What must the stop report tell the owner before fresh approval is
+            meaningful?
+          </li>
+          <li>
+            Which unresolved budget and scheduling choices could a careless
+            resume implementation bypass?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-10.html">SUC-10</a>, <a href="SUC-11.html">SUC-11</a>,
+          <a href="SUC-12.html">SUC-12</a>, <a href="SUC-13.html">SUC-13</a>,
+          <a href="SUC-16.html">SUC-16</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-6 — Register a product and collect traceable feedback | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-6: Register a product and collect traceable feedback</h1>
+      <p class="meta">
+        Linear status: Done · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-6/register-a-product-and-collect-traceable-feedback"
+          >Read the original SUC-6 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 1, 2, 3, 4, 5, 6, 7, 39.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          Recurring feedback work needs a stable product context. A customer
+          request must retain its wording, customer identity, source, and
+          received date so later grouping and demand counts can be explained.
+          Setup must also retain the owner’s repository, goals, and operating
+          constraints across requests.
+        </p>
+        <p>
+          The live amendment makes an authenticated, persistent owner workflow
+          the primary interface. A development CLI would not satisfy that
+          interface contract. Owners can begin with partial configuration, but
+          missing evidence or operating settings must remain visible.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          chooses one durable, credential-free product profile because recurring
+          work and the SUC-7/SUC-11 handoff need stable context. Server-verified
+          identity establishes ownership; request data cannot choose its own
+          authority. Integration declarations describe intended capabilities and
+          require later verification before activation.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Provide a usable submission and inspection interface with durable
+            feedback records containing product ID, stable customer ID, original
+            text, source reference, and date.
+          </li>
+          <li>
+            Keep records and access isolated by product, and keep credentials
+            outside feedback and tickets.
+          </li>
+          <li>
+            Store per-product goals, integrations, approver, inventory,
+            schedule, validation instructions, restricted areas, runtime, and
+            spending settings; report missing build settings before activation.
+          </li>
+          <li>
+            Demonstrate submission, retrieval, configuration validation, and
+            cross-product isolation through observable workflow tests.
+          </li>
+        </ul>
+        <h3>SUC-6 acceptance criteria amendment</h3>
+        <ul>
+          <li>
+            Provide authenticated owner setup and inspection plus structured
+            feedback intake; do not make a local CLI the primary product
+            interface.
+          </li>
+          <li>
+            Persist the complete product profile above, with repository and
+            default branch as first-class build configuration rather than an
+            unstructured integration field.
+          </li>
+          <li>
+            Persist durable feedback with product ID, stable customer ID,
+            original text, credential-free source reference, and received date;
+            isolate records and access by product.
+          </li>
+          <li>
+            Return visible registered, analysis-ready, and build-ready status
+            with precise missing fields; only build-ready products can enable
+            scheduled implementation.
+          </li>
+          <li>
+            Demonstrate product setup, feedback submission/retrieval, readiness
+            transitions, repository-context requirements, credential exclusion,
+            and cross-product isolation at the observable workflow seam.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: None. Direct successors blocked by this ticket:
+          <a href="SUC-7.html">SUC-7</a>.
+        </p>
+        <p>
+          SUC-7 consumes repository/documentation references, goals, inventory,
+          and original feedback. <a href="SUC-11.html">SUC-11</a> is a related
+          downstream contract, not a native direct successor: it consumes
+          repository/default branch, approver, ticket destination, instructions,
+          restrictions, schedule, limits, and integration declarations.
+          Persisting these fields does not itself activate a runner.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Linear says Done. The branch provides authenticated registration,
+          profile updates, feedback submission, and inspection over HTTP.
+          <code>Workflow</code> persists products and feedback in a JSON store;
+          inspection returns readiness and precise missing-field lists.
+          Authentication uses a server-side bearer-token mapping. Historical
+          changes replaced the one-request CLI in <code>99c9018</code> and
+          hardened authentication and incremental setup in <code>013a199</code>.
+        </p>
+        <p>
+          Tests exist for setup, feedback, ownership, and readiness. They were
+          inspected, not run for this documentation. Later build and scheduler
+          behavior is absent, so their future use of the setup contract is not
+          yet demonstrated locally.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          Follow one registration request from HTTP authentication into profile
+          validation, owner binding, durable storage, and response readiness.
+          Then trace a partial update and ask which missing fields disappear.
+          Keep the distinction between saved configuration and activated
+          capability explicit when reasoning about successors. A full profile is
+          a handoff contract; a successful save is not evidence that an external
+          runner can enforce its limits.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Read <a href="../../../src/server.ts">src/server.ts</a> for request
+          parsing and authentication,
+          <a href="../../../src/workflow.ts">src/workflow.ts</a> for profile
+          validation, storage, and readiness,
+          <a href="../../../src/start.ts">src/start.ts</a> for startup
+          configuration, and
+          <a href="../../../test/server.test.ts">test/server.test.ts</a> for
+          observable behavior.
+          <a href="../../../README.md">README.md</a> documents the routes.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          This ticket introduces the current profile:
+          <code>feedbackIntake</code>, <code>goals</code>,
+          <code>repository</code> (provider, reference, URL, default branch,
+          documentation references), <code>inventory</code>,
+          <code>ticketDestination</code>, <code>approver</code>,
+          <code>validationInstructions</code>, <code>previewInstructions</code>,
+          <code>restrictedAreas</code>, <code>timezone</code>,
+          <code>proposalTime</code>, <code>approvalDeadline</code>,
+          <code>buildWindow</code>, <code>runtimeMinutes</code>,
+          <code>spendingLimit</code>, and <code>integrations</code>. Credentials
+          belong outside these records.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Implemented durable state:</strong> a product has stable ID,
+          name, authenticated owner, and profile. Feedback has ID, product ID,
+          customer ID, original text, source reference, and received date. The
+          store is local JSON; that storage mechanism is an implementation
+          detail rather than the ADR’s mandated database choice.
+        </p>
+        <p>
+          <strong>Readiness:</strong> registration requires identity, owner, and
+          feedback intake. Analysis readiness requires goals, repository
+          identity, documentation references, and inventory. Build readiness
+          adds branch, destination, approver, validation/preview instructions,
+          restrictions, schedule/timezone, positive limits, and declared
+          integration capabilities. These flags do not represent approval or
+          activated enforcement.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  actor Owner
+  participant HTTP as Authenticated HTTP
+  participant Workflow
+  participant Store as Durable store
+  Owner-&gt;&gt;HTTP: Register or update product
+  HTTP-&gt;&gt;Workflow: Verified owner and validated input
+  Workflow-&gt;&gt;Store: Save product profile
+  Workflow--&gt;&gt;Owner: Product and missing readiness fields
+  Owner-&gt;&gt;HTTP: Submit structured feedback
+  HTTP-&gt;&gt;Workflow: Product-scoped feedback
+  Workflow-&gt;&gt;Store: Preserve original evidence
+  Owner-&gt;&gt;HTTP: Inspect product
+  HTTP--&gt;&gt;Owner: Profile, readiness, feedback</pre>
+          <figcaption>
+            The server authenticates the owner, saves a product and its original
+            feedback, and exposes what configuration is still missing.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            Authentication establishes identity; product ownership authorizes
+            access to a particular record.
+          </li>
+          <li>
+            A durable domain contract survives requests even when the storage
+            implementation changes.
+          </li>
+          <li>
+            Readiness is derived from evidence and configuration, while approval
+            and integration activation are separate gates.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          A one-request CLI is convenient for development but loses the
+          persistent owner interface selected by ADR 0001. A feedback-only
+          namespace is smaller but forces later steps to rediscover repository
+          context and constraints. A database could replace the JSON store
+          later; nothing in the accepted ADR settles concurrency, migration, or
+          deployment topology.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            A caller submits another owner’s product ID: inspection, updates,
+            and feedback intake must reject unauthorized access.
+          </li>
+          <li>
+            A partial profile lacks repository evidence: analysis readiness must
+            report the missing fields instead of implying existing functionality
+            was checked.
+          </li>
+          <li>
+            An integration claims limit capabilities: the profile can retain
+            that declaration, but SUC-11 still needs proof before running.
+          </li>
+          <li>
+            Credential values appear in configuration or feedback: exclude
+            actual secrets while preserving ordinary customer wording.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Inspect the existing server tests for registration,
+          submission/retrieval, profile completion, invalid identity/input, and
+          cross-product access. Follow their requests and responses rather than
+          testing private helper structure. Any future changes should preserve
+          received dates and original wording across restarts and expose
+          readiness transitions. Controlled external integrations and a
+          controllable clock apply where relevant; no real integrations need
+          activation to understand this ticket.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            Why must ownership come from server-verified identity rather than a
+            request field?
+          </li>
+          <li>
+            Which fields make a product analysis-ready, and what extra work
+            remains before a build can run?
+          </li>
+          <li>
+            What context does SUC-7 inherit, and what different context does
+            SUC-11 inherit?
+          </li>
+          <li>
+            How can feedback remain useful evidence without becoming authority?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-7.html">SUC-7</a>, <a href="SUC-11.html">SUC-11</a>,
+          <a href="SUC-16.html">SUC-16</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

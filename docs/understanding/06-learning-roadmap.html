@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Learning roadmap — Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Documentation">
+        <a href="01-product-overview.html">Overview</a>
+        <a href="02-system-architecture.html">Architecture</a>
+        <a href="03-data-flow.html">Flows</a>
+        <a href="04-ticket-dependencies.html">Tickets</a>
+        <a href="05-technical-decisions.html">Decisions</a>
+        <a href="06-learning-roadmap.html" aria-current="page">Learning</a>
+        <a href="07-glossary.html">Glossary</a>
+        <a href="08-open-questions.html">Questions</a>
+        <a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1 id="learning-roadmap">Learning roadmap</h1>
+      <p>
+        Learn the running feedback service first, then the workflow it is
+        intended to support. Every checkpoint below is a prompt for the learner
+        to explain in their own words; no checkpoint has been marked understood.
+      </p>
+      <p>
+        <strong>Evidence baseline:</strong> 2026-10-09, HEAD
+        <code>b80de3d</code>, branch <code>feature/SUC-7-group-feedback</code>.
+        During discovery, <code>npm test</code> passed all seven tests and
+        <code>npm run typecheck</code> passed. PR merge and deployment have not
+        been verified.
+      </p>
+      <p>
+        Use the <a href="07-glossary.html">glossary</a> for vocabulary and the
+        <a href="08-open-questions.html#learning-unknowns">learning unknowns</a>
+        to record questions without treating them as software defects.
+      </p>
+
+      <h2 id="dependency-order">Start in dependency order</h2>
+      <p>
+        Live issue status was verified during discovery:
+        <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a> is Done;
+        <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a> is In
+        Progress; SUC-8 through SUC-16 are Backlog. The native dependencies
+        match <a href="../../published-tickets.md">published-tickets.md</a>.
+        Status describes issue tracking, not a deployment guarantee.
+      </p>
+      <ol>
+        <li>
+          <strong>First:</strong> SUC-6 → SUC-7. Understand ownership, product
+          configuration, feedback evidence, verification, and candidate analysis
+          in the current source.
+        </li>
+        <li>
+          <strong>Next:</strong>
+          <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a> →
+          <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>. Study
+          intended current-week demand evaluation and rolling fallback after
+          candidate semantics are clear.
+        </li>
+        <li>
+          <strong>Then:</strong> SUC-8 →
+          <a href="https://linear.app/suchint/issue/SUC-10">SUC-10</a> →
+          <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>. Learn
+          version-bound approval before bounded execution.
+        </li>
+        <li>
+          <strong>After execution:</strong> SUC-11 →
+          <a href="https://linear.app/suchint/issue/SUC-12">SUC-12</a> →
+          <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>; SUC-11
+          also enables
+          <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>. Review
+          packages precede continuation; scheduling is a separate branch.
+        </li>
+        <li>
+          <strong>Delivery and reuse:</strong> SUC-8 plus SUC-12 →
+          <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>. Finally,
+          <a href="https://linear.app/suchint/issue/SUC-16">SUC-16</a> depends
+          on SUC-9, SUC-13, SUC-14, and SUC-15 to demonstrate the full workflow
+          for a second product.
+        </li>
+      </ol>
+      <p>
+        The dependency order is a study sequence, not evidence that later
+        capabilities exist. See
+        <a href="04-ticket-dependencies.html">ticket dependencies</a> for the
+        full map.
+      </p>
+
+      <h2 id="foundations">Priority 0: foundations and vocabulary</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Foundational concepts — all learner checkpoints are pending
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Why it matters</th>
+              <th scope="col">Where to study</th>
+              <th scope="col">Tickets</th>
+              <th scope="col">What the learner should explain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Owner, customer, product</td>
+              <td>
+                Authority and customer demand come from different identities.
+              </td>
+              <td>
+                <a href="07-glossary.html#domain-terms">Domain terms</a>;
+                <a href="../../src/workflow.ts"
+                  >Product, Feedback, productForOwner</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>
+              </td>
+              <td>
+                Why a customer ID inside feedback does not grant permission to
+                read or change a product.
+              </td>
+            </tr>
+            <tr>
+              <td>Evidence versus instructions</td>
+              <td>
+                Original feedback is retained without becoming workflow
+                authorization.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >submitFeedback, analyzeFeedback</a
+                >;
+                <a href="../../test/server.test.ts"
+                  >configuration-isolation test</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                What happens when feedback asks the workflow to deploy, and why
+                storing that sentence does not execute it.
+              </td>
+            </tr>
+            <tr>
+              <td>Profile and readiness</td>
+              <td>
+                Configuration completeness is distinct from verified evidence or
+                permission to execute.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >ProductProfile, analysisRequirements, buildOnlyRequirements,
+                  readiness</a
+                >;
+                <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>
+              </td>
+              <td>
+                How analysisReady can be true before inventory verification, and
+                why buildReady does not mean a build is authorized or available.
+              </td>
+            </tr>
+            <tr>
+              <td>Candidate and fulfillment match</td>
+              <td>
+                Grouping evidence and checking whether a need is already
+                satisfied are separate steps.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >CandidateInput, MatchDisposition, validateMatch</a
+                >;
+                <a
+                  href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+                  >ADR 0002</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>,
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+              </td>
+              <td>
+                The difference between unmet, fulfilled, unmet-extension,
+                uncertain, and an existing ticket.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="architecture-and-technology">
+        Priority 0: architecture and technology
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Trace the system boundaries before studying individual branches
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Why it matters</th>
+              <th scope="col">Where to study</th>
+              <th scope="col">Tickets</th>
+              <th scope="col">What the learner should explain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Composition and dependency injection</td>
+              <td>
+                Startup selects the trusted authenticator and ticket finder; the
+                domain does not choose a vendor.
+              </td>
+              <td>
+                <a href="../../src/start.ts">startup composition</a>;
+                <a href="../../src/server.ts"
+                  >createWorkflowServer, OwnerAuthenticator</a
+                >; <a href="../../src/workflow.ts">ExistingTicketFinder</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                Which dependencies tests inject, and why normal startup
+                currently cannot perform a real existing-ticket check.
+              </td>
+            </tr>
+            <tr>
+              <td>HTTP parsing and authentication</td>
+              <td>
+                The public boundary rejects malformed requests and derives owner
+                identity from a trusted token mapping.
+              </td>
+              <td>
+                <a href="../../src/server.ts"
+                  >bearerTokenAuthenticator, ownerFrom, readJson, asProfile,
+                  asAnalysisInput</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                The path from Bearer header to owner ID, the 1,000,000-byte body
+                limit, and why an owner header supplied by a caller is
+                insufficient.
+              </td>
+            </tr>
+            <tr>
+              <td>Node.js, TypeScript, and ESM</td>
+              <td>
+                Types help during development; runtime JSON still needs
+                validation.
+              </td>
+              <td>
+                <a href="../../package.json">Node ≥24 and scripts</a>;
+                <a href="../../tsconfig.json"
+                  >strict NodeNext, noEmit, erasableSyntaxOnly</a
+                >; <a href="../../src/server.ts">runtime parsing</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>;
+                shared foundation for SUC-7–16
+              </td>
+              <td>
+                Why npm start runs .ts files directly, why typecheck emits no
+                JavaScript, and why a TypeScript type does not validate
+                persisted JSON.
+              </td>
+            </tr>
+            <tr>
+              <td>File persistence and atomic replacement</td>
+              <td>
+                Durable state exists, but its guarantees must be stated
+                precisely.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts">StoredWorkflow, read, write</a>;
+                <a href="05-technical-decisions.html">technical decisions</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>;
+                relevant to SUC-11/13/14/15
+              </td>
+              <td>
+                How workflow.json.tmp becomes workflow.json, what ENOENT means,
+                and why rename alone does not establish locking or crash
+                durability.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="implementation">Priority 1: current implementation details</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Follow the implemented behavior without assuming automation
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Why it matters</th>
+              <th scope="col">Where to study</th>
+              <th scope="col">Tickets</th>
+              <th scope="col">What the learner should explain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Incremental profile updates</td>
+              <td>
+                Owners can complete a partial profile without re-registering it.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >updateProductProfile, mergeProfile</a
+                >; <a href="../../src/server.ts">asProfilePatch</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>
+              </td>
+              <td>
+                Why repository fields merge, while supplied lists and the
+                integrations map replace prior values; why null and empty lists
+                cannot clear fields through HTTP.
+              </td>
+            </tr>
+            <tr>
+              <td>Inventory verification freshness</td>
+              <td>
+                Analysis must use the currently acknowledged evidence values.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >verifyInventory, inventoryEvidence,
+                  hasCurrentInventoryVerification, sameTextList</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                Which edits require re-verification, why list order matters, and
+                why changing repository content behind the same URL is not
+                detected.
+              </td>
+            </tr>
+            <tr>
+              <td>Grouping, candidate reuse, and evidence assignment</td>
+              <td>
+                The system persists explicit interpretations, not inferred
+                semantic clusters.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >analyzeFeedback, validateAnalysisInput, evidenceFor</a
+                >; <a href="03-data-flow.html">analysis flow</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                How exact underlyingNeed equality reuses a candidate under a new
+                input key, how evidence accumulates, and why assignment
+                uniqueness is checked within a request rather than across all
+                history.
+              </td>
+            </tr>
+            <tr>
+              <td>Inventory comparison and ticket lookup</td>
+              <td>
+                Owner comparisons and trusted server lookup supply different
+                evidence.
+              </td>
+              <td>
+                <a href="../../src/workflow.ts"
+                  >validateMatch, validateExistingTicket, withExistingTicket,
+                  asFeatureCandidate, asBugCandidate</a
+                >; <a href="../../src/server.ts">asAnalysisInput</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>,
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+              </td>
+              <td>
+                Why feature inputs require a match, why bug matches are
+                optional, and why an existing ticket does not itself mean
+                functionality is delivered.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="testing-and-debugging">Priority 1: testing and debugging</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Learn what the checks demonstrate and what remains untested
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Why it matters</th>
+              <th scope="col">Where to study</th>
+              <th scope="col">Tickets</th>
+              <th scope="col">What the learner should explain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Observable HTTP tests</td>
+              <td>
+                Tests exercise routes, authentication, and real file storage
+                together.
+              </td>
+              <td>
+                <a href="../../test/server.test.ts"
+                  >withServer, request, seven test cases</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                How temporary directories and ephemeral ports isolate tests, and
+                how a fake finder avoids calling a real tracker.
+              </td>
+            </tr>
+            <tr>
+              <td>Error classification</td>
+              <td>
+                A status code must be traced to its actual source before drawing
+                a diagnosis.
+              </td>
+              <td>
+                <a href="../../src/server.ts">request callback catch block</a>;
+                <a href="../../src/workflow.ts"
+                  >WorkflowError, productForOwner, validateExistingTicket</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a>,
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+              </td>
+              <td>
+                Why 401, 403, and 409 mean different things; why a generic
+                filesystem or thrown finder error currently appears as 400; when
+                invalid finder output yields 502.
+              </td>
+            </tr>
+            <tr>
+              <td>Coverage boundaries</td>
+              <td>
+                Passing tests are evidence for tested cases, not every
+                durable-state guarantee.
+              </td>
+              <td>
+                <a href="../../test/server.test.ts">current assertions</a>;
+                <a href="08-open-questions.html#p1-storage"
+                  >storage questions</a
+                >
+              </td>
+              <td>
+                SUC-6/7 now;
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>,
+                <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>,
+                <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>
+                later
+              </td>
+              <td>
+                Which tests cover configuration isolation and uncertainty
+                separately, and why restart recovery, concurrent writers, full
+                build readiness, and integration failures remain unestablished.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="future-workflow">Priority 2: future workflow design</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Study these as backlog requirements, not available endpoints
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Concept</th>
+              <th scope="col">Why it matters</th>
+              <th scope="col">Where to study</th>
+              <th scope="col">Tickets</th>
+              <th scope="col">What the learner should explain</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Distinct-customer demand and time windows</td>
+              <td>
+                Repeated messages and repeated customers must not inflate
+                qualifying demand.
+              </td>
+              <td>
+                <a href="tickets/SUC-8.html">SUC-8</a> and
+                <a href="tickets/SUC-9.html">SUC-9</a>;
+                <a href="08-open-questions.html#p0-demand"
+                  >demand contract questions</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a> →
+                <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>
+              </td>
+              <td>
+                How current-week precedence and rolling fallback differ; why
+                threshold, window length, and week boundaries need explicit
+                contracts.
+              </td>
+            </tr>
+            <tr>
+              <td>Version-bound approval and bounded execution</td>
+              <td>
+                Complete settings alone cannot authorize implementation work.
+              </td>
+              <td>
+                <a href="tickets/SUC-10.html">SUC-10</a> and
+                <a href="tickets/SUC-11.html">SUC-11</a>;
+                <a href="../adr/0001-persistent-product-profile.md"
+                  >declared versus activated integrations</a
+                >
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-10">SUC-10</a> →
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>
+              </td>
+              <td>
+                What scope approval covers, which edits invalidate it, and how
+                actual runtime/spending enforcement differs from declaring
+                capability strings.
+              </td>
+            </tr>
+            <tr>
+              <td>Review, scheduling, continuation, and delivery</td>
+              <td>
+                A draft PR, an approved run, and delivered functionality are
+                different lifecycle states.
+              </td>
+              <td>
+                <a href="tickets/SUC-12.html">SUC-12</a>–<a
+                  href="tickets/SUC-16.html"
+                  >SUC-16</a
+                >; <a href="04-ticket-dependencies.html">dependency map</a>
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-12">SUC-12</a>–<a
+                  href="https://linear.app/suchint/issue/SUC-16"
+                  >SUC-16</a
+                >
+              </td>
+              <td>
+                Why scheduled attempts need duplicate prevention, continuation
+                needs fresh approval, and only verified delivery should retire
+                satisfied demand.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="explain-back-lessons">Stepwise explain-back lesson plan</h2>
+      <p>
+        For each lesson: read the linked source, draw or narrate the path,
+        answer the prompt without looking, then compare the explanation with the
+        source. Record uncertainty in
+        <a href="08-open-questions.html#learning-unknowns">learning unknowns</a
+        >. Reading a page or passing a command does not establish understanding.
+      </p>
+      <ol>
+        <li>
+          <strong>Lesson 1 — actors and evidence:</strong> use
+          <a href="07-glossary.html#domain-terms">domain terms</a> and
+          <code>Product</code>/<code>Feedback</code>. Explain who submits
+          feedback through this service, who the customer ID identifies, and
+          which actor can inspect it. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 2 — one request end to end:</strong> trace POST
+          /products from <a href="../../src/start.ts">startup</a> through
+          <a href="../../src/server.ts">authentication and parsing</a> to
+          <a href="../../src/workflow.ts">registerProduct and write</a>. Explain
+          the response and persisted fields. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 3 — partial to analysis-ready:</strong> trace
+          <code>mergeProfile</code> and readiness predicates. Explain why an
+          incomplete repository can be saved and why a positive readiness flag
+          does not satisfy the inventory-verification gate. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 4 — verified analysis:</strong> trace verification and
+          analysis with two differently worded messages. Explain which grouping
+          decisions the owner supplies, what exact-string reuse means, and what
+          an uncertain match must contain. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 5 — storage and failure:</strong> inspect
+          <code>read</code>, <code>write</code>, and the server catch block.
+          Explain missing versus malformed storage, an invalid ticket response,
+          and a finder that throws. Distinguish a code path from an observed
+          failure. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 6 — tests as evidence:</strong> read
+          <a href="../../test/server.test.ts">all seven tests</a>. Pair each
+          claim with an assertion; identify one restart scenario and one
+          cross-product scenario that are not covered. The seven-pass result is
+          a baseline, not a learner assessment. Checkpoint: pending.
+        </li>
+        <li>
+          <strong>Lesson 7 — intended lifecycle:</strong> follow
+          <a href="04-ticket-dependencies.html">SUC-8 through SUC-16</a>.
+          Explain how feedback could eventually lead to a proposal, approved
+          attempt, review package, and delivery, explicitly marking every
+          unimplemented step. Checkpoint: pending.
+        </li>
+      </ol>
+
+      <h2 id="maintenance-impact">Maintenance impact map</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Update these learning pages when their evidence changes
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Change</th>
+              <th scope="col">Update in this page</th>
+              <th scope="col">Related pages</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Profile, readiness, or analysis contract</td>
+              <td>Foundations, implementation prompts, lessons 3–4</td>
+              <td>
+                <a href="07-glossary.html#domain-terms">Glossary terms</a>;
+                <a href="08-open-questions.html#p0-contracts"
+                  >contract questions</a
+                >; Architecture and Flows
+              </td>
+            </tr>
+            <tr>
+              <td>Storage, authentication, or finder wiring</td>
+              <td>Architecture, technology, and failure lesson</td>
+              <td>
+                <a href="07-glossary.html#components">Components</a>;
+                <a href="08-open-questions.html#p1-storage">storage questions</a
+                >; Decisions
+              </td>
+            </tr>
+            <tr>
+              <td>New tests or lifecycle implementation</td>
+              <td>Coverage claims, future-work labels, dependency sequence</td>
+              <td>
+                <a href="08-open-questions.html#p1-tests">test questions</a>;
+                Tickets; Overview
+              </td>
+            </tr>
+            <tr>
+              <td>Learner explains a concept</td>
+              <td>
+                Record evidence of the explanation before changing its pending
+                checkpoint
+              </td>
+              <td>
+                <a href="08-open-questions.html#learning-unknowns"
+                  >Learning unknowns</a
+                >
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="change-history">Change history</h2>
+      <p>
+        <time datetime="2026-10-09">2026-10-09</time>: created the
+        dependency-led roadmap and explain-back lessons against b80de3d. No
+        learner understanding was asserted. Update the evidence baseline and
+        relevant lessons when source, tests, or ticket contracts change.
+      </p>
+      <h2 id="sources">Sources and evidence limits</h2>
+      <p>
+        Implementation: <a href="../../src/workflow.ts">workflow.ts</a>,
+        <a href="../../src/server.ts">server.ts</a>,
+        <a href="../../src/start.ts">start.ts</a>,
+        <a href="../../test/server.test.ts">server.test.ts</a>,
+        <a href="../../package.json">package.json</a>, and
+        <a href="../../tsconfig.json">tsconfig.json</a>. Decisions:
+        <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a> and
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >. Planned behavior:
+        <a href="04-ticket-dependencies.html">live implementation tickets</a>
+        and <a href="../../published-tickets.md">published ticket record</a>.
+        The draft's “not published” statement is historical; the published
+        record records approval and publication. The live parent contains stale
+        pre-implementation claims on parent
+        <a href="https://linear.app/suchint/issue/SUC-5">SUC-5</a>; current code
+        and approved testing evidence take precedence for this roadmap.
+      </p>
+    </main>
+    <footer>
+      <p>
+        <a href="07-glossary.html">Next: glossary</a> ·
+        <a href="08-open-questions.html">Open questions</a> ·
+        <a href="README.md">Dashboard</a>
+      </p>
+    </footer>
+  </body>
+</html>

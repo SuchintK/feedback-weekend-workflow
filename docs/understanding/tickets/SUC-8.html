@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-8 — Propose one feature from current-week demand | Feedback workflow
+      learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-8: Propose one feature from current-week demand</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-8/propose-one-feature-from-current-week-demand"
+          >Read the original SUC-8 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 10, 11, 13, 14, 21, 22, 23, 25.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A weekly proposal should represent distinct customers asking for
+          eligible unmet scope. Message volume alone is misleading: repeated
+          requests from one customer must not outweigh several customers, and
+          bugs or satisfied requests must not become new feature proposals. The
+          owner needs one explainable selection and visible alternatives.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          This is the first demand-selection consumer of
+          <a href="../../adr/0002-persist-evidence-backed-candidate-analysis.md"
+            >ADR 0002</a
+          >. It builds on durable candidates and original evidence, applying
+          eligibility and time filtering before counting customers. Proposal
+          publication introduces an external side effect whose retry behavior
+          must preserve the one-proposal outcome.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Use the product timezone and configurable threshold, defaulting to
+            three distinct customers per feature.
+          </li>
+          <li>
+            Count each customer once per candidate from eligible underlying
+            evidence and explain the count.
+          </li>
+          <li>
+            Rank by customer count, goal alignment, then smaller scope; show
+            alternatives and support an owner override.
+          </li>
+          <li>
+            Create or update one proposal containing scope, acceptance criteria,
+            exclusions, supporting feedback, and assumptions; prevent duplicate
+            tickets on repeated evaluation.
+          </li>
+          <li>
+            When nothing qualifies, report that outcome without starting a
+            build; verify scoring, ranking, publication, and skip behavior with
+            controlled external integrations.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-7.html">SUC-7</a>. Direct successors
+          blocked by this ticket: <a href="SUC-9.html">SUC-9</a>,
+          <a href="SUC-10.html">SUC-10</a>, <a href="SUC-15.html">SUC-15</a>.
+        </p>
+        <p>
+          SUC-7 must provide current, evidence-backed unmet features/extensions
+          with no checked existing ticket. SUC-9 reuses this evaluator, ranking,
+          and publication behavior for fallback. SUC-10 needs a concrete
+          proposal that can be clarified and version-approved. SUC-15 needs
+          proposal-to-evidence traceability to retire only delivered demand.
+          Those are handoffs, not additional native blockers.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally: no weekly demand evaluator,
+          distinct-customer scoring, ranker, override, or proposal publisher
+          exists. Candidates and received dates are available from the SUC-6/7
+          code. There is no configured demand-threshold field in
+          <code>ProductProfile</code>, and the current startup lacks a real
+          ticket finder. The latter matters before claiming a candidate has no
+          existing ticket.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, separate a side-effect-free evaluation result from
+          publication. Resolve the product’s current-week interval, filter
+          eligible evidence, compute a set of customer IDs for each candidate,
+          then apply count, goal alignment, and smaller scope in that order.
+          Return counts and alternatives so the owner can explain or override
+          selection. Publish the selected proposal using a stable persisted
+          publication identity to reconcile retries. The exact identity and
+          recovery protocol need design.
+        </p>
+        <p>
+          Week boundaries, residual ties, goal-alignment scoring, scope
+          estimates, and override restrictions remain undecided. A default of
+          three is specified; a particular field name or scoring formula is not.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          <a href="../../../src/workflow.ts">src/workflow.ts</a> is the existing
+          domain/storage seam for evidence, profiles, and candidates.
+          <a href="../../../src/server.ts">src/server.ts</a> is the HTTP seam
+          for a future owner-facing evaluation.
+          <a href="../../../test/server.test.ts">test/server.test.ts</a> is the
+          current observable test boundary.
+          <a href="../../../src/start.ts">src/start.ts</a> would need reviewed
+          integration wiring if publication is implemented.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>timezone</code>, <code>goals</code>,
+          <code>ticketDestination</code>, and applicable
+          <code>integrations</code>; customer IDs, received dates, and candidate
+          dispositions come from durable evidence. The configurable threshold
+          has no current profile representation. Selection does not consume
+          runner approval as a substitute for demand.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> an evaluation record with
+          product, interval, eligible evidence, distinct-customer counts,
+          ranking explanation, alternatives, selected candidate/override, and a
+          proposal publication reference. These records do not exist locally;
+          their schema and retry contract are not approved.
+        </p>
+        <p>
+          <strong>Readiness:</strong> no implemented readiness effect. Analysis
+          evidence and a trustworthy candidate/ticket check are prerequisites
+          for meaningful evaluation. Missing timezone, threshold representation,
+          or publication configuration must be addressed in design; the current
+          analysis-ready flag alone does not prove weekly proposal readiness.
+          Publication does not authorize a build.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Evidence as Candidate evidence
+  participant Evaluate as Proposed weekly evaluator
+  actor Owner
+  participant Tracker as Configured tracker
+  Evidence-&gt;&gt;Evaluate: Eligible unmet features and dated records
+  Evaluate-&gt;&gt;Evaluate: Filter current week and distinct customers
+  Evaluate-&gt;&gt;Evaluate: Rank by count, goals, and scope
+  Evaluate--&gt;&gt;Owner: Counts, alternatives, selection or no qualification
+  Owner-&gt;&gt;Evaluate: Optional selection override
+  Evaluate-&gt;&gt;Tracker: Create or update one proposal when selected
+  Tracker--&gt;&gt;Evaluate: Proposal reference</pre>
+          <figcaption>
+            A proposed evaluator counts unique customers in the product’s week,
+            explains the ranking, supports owner override, and publishes one
+            proposal only when there is a selection.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            Distinct-customer counting uses sets over eligible records rather
+            than message totals.
+          </li>
+          <li>
+            A lexicographic ranking applies priorities in order; a weighted
+            score could produce a different policy.
+          </li>
+          <li>
+            Publication retries need reconciliation because a remote create can
+            succeed before its response is received.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          A weighted score makes tuning easy but can violate the specified
+          customer-count-first ordering. A pure evaluator is easier to inspect
+          and replay than evaluation mixed with remote writes. Creating a new
+          ticket on every evaluation is simple but violates duplicate
+          prevention. Persisted references and tracker lookup can help, with
+          unresolved failure-recovery tradeoffs.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            One customer submits five messages: count that customer once for the
+            candidate.
+          </li>
+          <li>
+            A fulfilled, bug, uncertain, or checked-ticket candidate has many
+            requests: exclude it under ADR 0002.
+          </li>
+          <li>
+            A tracker create succeeds but the response is lost: reconcile before
+            retrying creation.
+          </li>
+          <li>
+            No candidate qualifies: report the result without starting a runner;
+            SUC-9 may later evaluate fallback.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Use a controllable clock and product timezone for date boundaries;
+          include repeated customers, multiple candidates, and every eligibility
+          disposition. Assert ranking order, explanations, alternative
+          visibility, and an owner override once its semantics are settled. A
+          controlled tracker should simulate create/update and an ambiguous
+          failure after remote success. Assert repeated evaluation creates no
+          duplicate and no-demand outcomes perform no build work.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>Which filtering steps happen before counting customers?</li>
+          <li>
+            Why can a weighted ranking conflict with the specified ordering?
+          </li>
+          <li>
+            How would you detect a ticket created successfully before a timeout?
+          </li>
+          <li>
+            Which policy choices must be resolved before claiming the
+            current-week evaluator is complete?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-7.html">SUC-7</a>, <a href="SUC-9.html">SUC-9</a>,
+          <a href="SUC-10.html">SUC-10</a>, <a href="SUC-15.html">SUC-15</a>.
+          See the <a href="../08-open-questions.html">open questions</a> for
+          choices that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

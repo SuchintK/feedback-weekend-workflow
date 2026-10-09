@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>04 · Ticket dependencies · Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/diagrams.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="01-product-overview.html"
+        >Feedback workflow · Understanding</a
+      >
+      <nav aria-label="Knowledge base">
+        <a href="01-product-overview.html">Product</a
+        ><a href="02-system-architecture.html">Architecture</a
+        ><a href="03-data-flow.html">Flows</a
+        ><a href="04-ticket-dependencies.html">Tickets</a
+        ><a href="05-technical-decisions.html">Decisions</a
+        ><a href="06-learning-roadmap.html">Learning</a
+        ><a href="07-glossary.html">Glossary</a
+        ><a href="08-open-questions.html">Questions</a
+        ><a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>04 · Ticket dependencies</h1>
+      <p class="meta">
+        Evidence reviewed 9 October 2026 · branch
+        <code>feature/SUC-7-group-feedback</code> · commit
+        <code>b80de3d0816df80869251b8550d1ccae07236eb4</code>. This is a branch
+        snapshot; merge and deployment status were not verified.
+      </p>
+      <p>
+        All 11 direct implementation children of
+        <a href="https://linear.app/suchint/issue/SUC-5">SUC-5</a> were
+        retrieved, with pagination complete. This is the existing ticket set,
+        not a new breakdown. Native Linear blocker relationships agree with
+        <a href="../../published-tickets.md">the local published index</a>. The
+        parent is In Progress; it is a specification container, not a twelfth
+        implementation ticket.
+      </p>
+      <h2 id="graph">Dependency graph — published blockers</h2>
+      <figure>
+        <pre class="mermaid">
+flowchart TD
+  SUC6["SUC-6 · Setup and intake · Done"]
+  SUC7["SUC-7 · Candidate analysis · In Progress"]
+  SUC8["SUC-8 · Current-week proposal · Backlog"]
+  SUC9["SUC-9 · Rolling fallback · Backlog"]
+  SUC10["SUC-10 · Scope and approval · Backlog"]
+  SUC11["SUC-11 · Bounded build · Backlog"]
+  SUC12["SUC-12 · Review package · Backlog"]
+  SUC13["SUC-13 · Reliable schedule · Backlog"]
+  SUC14["SUC-14 · Freshly approved continuation · Backlog"]
+  SUC15["SUC-15 · Delivery and fulfillment · Backlog"]
+  SUC16["SUC-16 · Second product proof · Backlog"]
+  SUC6 --> SUC7
+  SUC7 --> SUC8
+  SUC8 --> SUC9
+  SUC8 --> SUC10
+  SUC10 --> SUC11
+  SUC11 --> SUC12
+  SUC11 --> SUC13
+  SUC12 --> SUC14
+  SUC12 --> SUC15
+  SUC8 --> SUC15
+  SUC13 --> SUC16
+  SUC15 --> SUC16
+  SUC9 --> SUC16
+  SUC14 --> SUC16
+</pre>
+        <figcaption>
+          Arrows mean “is a published prerequisite for,” not runtime
+          communication. SUC-8 forks into fallback and approval. SUC-11 forks
+          into review and scheduling. SUC-16 joins fallback, scheduling,
+          continuation, and delivery.
+        </figcaption>
+      </figure>
+      <p>
+        SUC-6 and SUC-11 also have a native <em>related</em> relationship and an
+        explicit Product Profile handoff. That is not an additional published
+        blocker edge. Scheduling uses evaluation behavior conceptually, while
+        its published direct blocker is SUC-11; avoid confusing code/data
+        dependencies with tracker edges.
+      </p>
+      <h2 id="inventory">Ticket purpose, affected modules, and status</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Identifier and exact title</th>
+              <th>Direct blockers</th>
+              <th>Responsibilities affected</th>
+              <th>Expected capability after completion</th>
+              <th>Available implementation evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <a href="tickets/SUC-6.html">SUC-6</a><br />Register a product
+                and collect traceable feedback<br /><a
+                  href="https://linear.app/suchint/issue/SUC-6/register-a-product-and-collect-traceable-feedback"
+                  >Source ticket</a
+                >
+              </td>
+              <td>None</td>
+              <td>Profile, authentication, intake, persistence</td>
+              <td>
+                Authenticated setup, original feedback retrieval, visible
+                readiness
+              </td>
+              <td>
+                Implemented locally; Linear Done.<br />Source updated 2026-10-05
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-7.html">SUC-7</a><br />Group requests and
+                filter existing functionality<br /><a
+                  href="https://linear.app/suchint/issue/SUC-7/group-requests-and-filter-existing-functionality"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-6.html">SUC-6</a></td>
+              <td>Inventory verification, candidates, ticket lookup seam</td>
+              <td>
+                Reusable evidence-backed features/bugs, fulfillment comparisons
+                and uncertainty
+              </td>
+              <td>
+                Branch implementation present; Linear In Progress;
+                completion/merge unverified.<br />Source updated 2026-10-05
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-8.html">SUC-8</a><br />Propose one feature
+                from current-week demand<br /><a
+                  href="https://linear.app/suchint/issue/SUC-8/propose-one-feature-from-current-week-demand"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-7.html">SUC-7</a></td>
+              <td>Demand evaluator, proposal/ticket adapter</td>
+              <td>
+                One ranked current-week proposal or visible skip; explained
+                unique-customer count
+              </td>
+              <td>
+                Planned; Backlog; no evaluator/publisher found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-9.html">SUC-9</a><br />Accumulate demand
+                only when the current week is quiet<br /><a
+                  href="https://linear.app/suchint/issue/SUC-9/accumulate-demand-only-when-the-current-week-is-quiet"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-8.html">SUC-8</a></td>
+              <td>Demand windows, evaluator reuse</td>
+              <td>
+                Rolling fallback only when no current-week candidate qualifies
+              </td>
+              <td>
+                Planned; Backlog; window configuration absent.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-10.html">SUC-10</a><br />Clarify scope and
+                approve a specific ticket version<br /><a
+                  href="https://linear.app/suchint/issue/SUC-10/clarify-scope-and-approve-a-specific-ticket-version"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-8.html">SUC-8</a></td>
+              <td>Clarification, ticket version, approval state</td>
+              <td>
+                Settled scope and explicit approver authorization for a specific
+                version
+              </td>
+              <td>
+                Planned; Backlog; no approval operation/state found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-11.html">SUC-11</a><br />Run one approved
+                build within enforced limits<br /><a
+                  href="https://linear.app/suchint/issue/SUC-11/run-one-approved-build-within-enforced-limits"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-10.html">SUC-10</a></td>
+              <td>Runner, usage enforcement, attempt state</td>
+              <td>
+                One bounded approved attempt preserving draft PR and progress
+              </td>
+              <td>
+                Planned; Backlog; no runner/attempt ledger found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-12.html">SUC-12</a><br />Turn build output
+                into a tested review package<br /><a
+                  href="https://linear.app/suchint/issue/SUC-12/turn-build-output-into-a-tested-review-package"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-11.html">SUC-11</a></td>
+              <td>Validation, preview, review package</td>
+              <td>
+                Acceptance evidence, check outcomes, applicable preview; failed
+                work stays draft
+              </td>
+              <td>
+                Planned; Backlog; no review orchestration found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-13.html">SUC-13</a><br />Schedule the
+                approved weekend build reliably<br /><a
+                  href="https://linear.app/suchint/issue/SUC-13/schedule-the-approved-weekend-build-reliably"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-11.html">SUC-11</a></td>
+              <td>Scheduler, clock, attempt deduplication</td>
+              <td>
+                Timezone-aware recurring evaluation/start; missed deadlines skip
+              </td>
+              <td>
+                Planned; Backlog; no scheduler found.<br />Source updated
+                2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-14.html">SUC-14</a><br />Report stopped
+                work and resume only with fresh approval<br /><a
+                  href="https://linear.app/suchint/issue/SUC-14/report-stopped-work-and-resume-only-with-fresh-approval"
+                  >Source ticket</a
+                >
+              </td>
+              <td><a href="tickets/SUC-12.html">SUC-12</a></td>
+              <td>Stop reports, continuation/reapproval</td>
+              <td>
+                Preserved work and separately approved bounded continuation
+              </td>
+              <td>
+                Planned; Backlog; no continuation flow found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-15.html">SUC-15</a><br />Confirm delivery
+                and retire only satisfied demand<br /><a
+                  href="https://linear.app/suchint/issue/SUC-15/confirm-delivery-and-retire-only-satisfied-demand"
+                  >Source ticket</a
+                >
+              </td>
+              <td>
+                <a href="tickets/SUC-12.html">SUC-12</a>,
+                <a href="tickets/SUC-8.html">SUC-8</a>
+              </td>
+              <td>Delivery, fulfillment audit, inventory updates</td>
+              <td>Only confirmed satisfied scope excluded from later demand</td>
+              <td>
+                Planned; Backlog; no delivery/fulfillment ledger found.<br />Source
+                updated 2026-10-04
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <a href="tickets/SUC-16.html">SUC-16</a><br />Activate and
+                verify the workflow for a second product<br /><a
+                  href="https://linear.app/suchint/issue/SUC-16/activate-and-verify-the-workflow-for-a-second-product"
+                  >Source ticket</a
+                >
+              </td>
+              <td>
+                <a href="tickets/SUC-13.html">SUC-13</a>,
+                <a href="tickets/SUC-15.html">SUC-15</a>,
+                <a href="tickets/SUC-9.html">SUC-9</a>,
+                <a href="tickets/SUC-14.html">SUC-14</a>
+              </td>
+              <td>
+                Product activation, integration contracts, operating
+                documentation
+              </td>
+              <td>
+                Evidence the entire workflow can run for two isolated products
+              </td>
+              <td>
+                Planned; Backlog; not established by present owner-isolation
+                test.<br />Source updated 2026-10-04
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">
+        “Done” is tracker status. “Implemented locally” is code evidence.
+        “Merged,” “deployed,” and “used successfully by a real pilot” are
+        separate claims and were not verified. A
+        <code>ready-for-agent</code> label is neither completion nor
+        authorization to run this product's future builds.
+      </p>
+      <h2 id="phases">Logical implementation and learning phases</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Tickets</th>
+              <th>What becomes available</th>
+              <th>Why this order</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1. Durable evidence foundation</td>
+              <td>SUC-6 → SUC-7</td>
+              <td>
+                Owned product context and attributable, interpreted evidence.
+              </td>
+              <td>
+                Demand cannot be evaluated honestly without retained source
+                records and comparisons.
+              </td>
+            </tr>
+            <tr>
+              <td>2. Demand and proposal</td>
+              <td>SUC-8 → SUC-9; SUC-10 follows SUC-8</td>
+              <td>
+                Recent/accumulated demand, one proposal, clarified and approved
+                scope.
+              </td>
+              <td>
+                Approval needs a concrete versioned proposal; fallback builds on
+                current-week evaluation.
+              </td>
+            </tr>
+            <tr>
+              <td>3. Bounded work and review</td>
+              <td>SUC-10 → SUC-11 → SUC-12</td>
+              <td>
+                Authorized implementation with limits and a review package.
+              </td>
+              <td>
+                The runner must consume authority and preserve observable
+                progress before review can assess it.
+              </td>
+            </tr>
+            <tr>
+              <td>4. Operational lifecycle</td>
+              <td>SUC-13 after 11; SUC-14 after 12; SUC-15 after 8 and 12</td>
+              <td>
+                Reliable starts, deliberate continuation, confirmed fulfillment.
+              </td>
+              <td>
+                Automation invokes existing gates; delivery closes the demand
+                feedback loop.
+              </td>
+            </tr>
+            <tr>
+              <td>5. Reuse demonstrated</td>
+              <td>SUC-16 after 9, 13, 14, 15</td>
+              <td>
+                Two-product setup and isolation evidence across the full
+                lifecycle.
+              </td>
+              <td>
+                A reusable design needs proof across distinct profiles, not only
+                a single happy path.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        These phases are a mentor reading/implementation organization, not new
+        requirements or changed blocker relationships. One valid learning order
+        is 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16. SUC-9 can be studied
+        alongside SUC-10 after understanding SUC-8.
+      </p>
+      <h2 id="handoffs">Critical contracts between tickets</h2>
+      <ul>
+        <li>
+          <strong>6 → 7:</strong> repository/documentation references, goals,
+          inventory, owner-scoped feedback. SUC-7 adds owner verification and
+          persistent candidate evidence.
+        </li>
+        <li>
+          <strong>7 → 8:</strong> only unmet features or unmet extensions
+          without a checked existing ticket are eligible. Bugs, fulfilled scope,
+          and uncertainty cannot silently enter new proposals. Real ticket-check
+          availability is still unresolved.
+        </li>
+        <li>
+          <strong>8 → 10:</strong> proposal identity, scope, acceptance
+          criteria, exclusions, assumptions, evidence, and a version strategy.
+          The current branch has no durable proposal contract.
+        </li>
+        <li>
+          <strong>10 → 11:</strong> verified approver identity bound to a ticket
+          version; invalidation on material edits. Product configuration
+          additionally supplies repository, instructions, policies, time and
+          limits.
+        </li>
+        <li>
+          <strong>11 → 12/13:</strong> attempt identity, bounded execution,
+          draft work and resource evidence; scheduling must not bypass those
+          checks.
+        </li>
+        <li>
+          <strong>12 → 14/15:</strong> review artifacts support reapproval or
+          delivery tracking. Review success alone never proves delivery.
+        </li>
+        <li>
+          <strong>15 → later evaluation:</strong> scope-specific fulfillment
+          audit and current inventory, preserving unmet demand and original
+          records.
+        </li>
+      </ul>
+      <p>
+        Only the first two handoffs have accepted ADRs and partial/current code.
+        Exact state schemas for later handoffs are proposed design work;
+        individual <a href="tickets/SUC-8.html">ticket pages</a> distinguish
+        required behavior from suggested implementation.
+      </p>
+      <h2 id="progress">Understanding progress</h2>
+      <p>
+        All 11 tickets have initial learning pages. No ticket is marked
+        understood yet. For each, explain its input, durable output, invariant,
+        failure behavior, and successor obligation; then record what was
+        established in that page and the <a href="README.md">dashboard</a>.
+      </p>
+      <p>
+        First dependency question: Why would SUC-8 be unsafe to implement using
+        only raw message counts and no SUC-7 comparison outcomes?
+      </p>
+      <footer>
+        Sources: live SUC-5–SUC-16 descriptions and native relations checked 9
+        October 2026; local published index and branch code. Recheck
+        relationships when tickets change.
+      </footer>
+    </main>
+  </body>
+</html>

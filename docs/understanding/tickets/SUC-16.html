@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-16 — Activate and verify the workflow for a second product | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-16: Activate and verify the workflow for a second product</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-16/activate-and-verify-the-workflow-for-a-second-product"
+          >Read the original SUC-16 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 1, 2, 3, 39.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          A workflow that works for one hard-coded product has not demonstrated
+          reuse. Two products must complete the same process through
+          configuration, with independent feedback, approvers, ticket
+          destinations, inventory, usage, and scheduled attempts. This ticket
+          tests the composition of the earlier boundaries rather than adding
+          another product-specific branch of shared logic.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          The persistent product contract in
+          <a href="../../adr/0001-persistent-product-profile.md">ADR 0001</a>
+          and evidence-backed candidates in
+          <a href="../../adr/0002-persist-evidence-backed-candidate-analysis.md"
+            >ADR 0002</a
+          >
+          must remain scoped by product throughout the full lifecycle.
+          Configuration is the variability boundary; controlled integrations
+          enable repeatable proof before a documented, authorized pilot.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Activate two distinct product profiles through the established
+            interface, supplying explicit schedules, limits, validation
+            instructions, and scoped integrations.
+          </li>
+          <li>
+            Verify feedback-to-proposal-to-approval-to-review-to-delivery for
+            both profiles, including rolling fallback and a stopped attempt.
+          </li>
+          <li>
+            Demonstrate that one product's feedback, approver, ticket
+            destination, inventory, usage, and scheduled attempts cannot affect
+            the other.
+          </li>
+          <li>
+            Use controlled external integrations for repeatable tests and a
+            documented, authorized pilot for real integrations; no production
+            deployment is implied.
+          </li>
+          <li>
+            Document product setup and visible operating outcomes so another
+            owner can configure the workflow without changing its shared logic.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-9.html">SUC-9</a>,
+          <a href="SUC-13.html">SUC-13</a>, <a href="SUC-14.html">SUC-14</a>,
+          <a href="SUC-15.html">SUC-15</a>. Direct successors blocked by this
+          ticket: None.
+        </p>
+        <p>
+          All four direct blockers are required: SUC-9 supplies rolling
+          fallback, SUC-13 scheduled execution, SUC-14 stopped-work
+          continuation, and SUC-15 verified delivery/retired demand. Earlier
+          setup, grouping, evaluation, approval, execution, and review are
+          inherited transitively. There is no direct successor recorded; this is
+          the final slice in the published breakdown.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally as an end-to-end capability. Setup/feedback
+          code includes product ownership and isolation tests, and candidate
+          analysis scopes evidence to products. That is useful groundwork, but
+          no proposal-to-delivery workflow, scheduler, usage isolation, real
+          integrations, or authorized pilot evidence is present. Remote SUC-6
+          Done does not imply all later phases are available.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, prepare two contrasting profiles through the
+          existing owner interface, use controlled integrations that capture
+          product context, and drive both through feedback, proposal, approval,
+          bounded work, review, and delivery. Include a rolling-fallback example
+          and a stopped attempt, then demonstrate that cross-product identifiers
+          and authority cannot affect the other product. Record visible outcomes
+          and setup steps another owner can repeat.
+        </p>
+        <p>
+          The issue does not name pilot products, vendors, credentials, runner
+          platform, or deployment environment. A real-integration pilot needs
+          its documented authorization; these learning pages neither perform it
+          nor grant that authority.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          <a href="../../../src/workflow.ts">src/workflow.ts</a> supplies the
+          shared profile, persistence, and ownership seams.
+          <a href="../../../src/server.ts">src/server.ts</a> supplies the
+          established interface;
+          <a href="../../../src/start.ts">src/start.ts</a> supplies runtime
+          configuration.
+          <a href="../../../test/server.test.ts">test/server.test.ts</a> is the
+          existing observable test boundary.
+          <a href="../../../README.md">README.md</a> is existing operator
+          documentation to inspect, not a file edited by this page.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes the complete profile contract: <code>feedbackIntake</code>,
+          goals, repository/default branch/documentation, inventory,
+          destination, approver, validation/preview instructions, restrictions,
+          timezone and schedule, runtime/spending limits, and scoped
+          integrations. Later threshold/window and release policy
+          representations remain unresolved and absent from today’s type. Each
+          product must supply its own relevant values.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> primarily two product-scoped
+          instances of earlier workflow records plus reproducible
+          operating/pilot evidence. This ticket does not inherently require a
+          new application entity. Any additional activation or pilot record is a
+          design proposal, not an established schema.
+        </p>
+        <p>
+          <strong>Readiness:</strong> each product must independently meet
+          analysis/build configuration and later authority/activation gates. One
+          product’s completeness or approval must not compensate for another’s
+          missing fields. Successful controlled verification does not imply
+          production deployment or authorized real integrations.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  actor OwnerA as Product A owner
+  actor OwnerB as Product B owner
+  participant Workflow as Shared workflow logic
+  participant A as Product A integrations and records
+  participant B as Product B integrations and records
+  OwnerA-&gt;&gt;Workflow: Configure A and submit A feedback
+  Workflow-&gt;&gt;A: Proposal, approved build, review, delivery
+  OwnerB-&gt;&gt;Workflow: Configure B and submit B feedback
+  Workflow-&gt;&gt;B: Proposal, approved build, review, delivery
+  Workflow-&gt;&gt;Workflow: Exercise fallback and stopped-attempt paths
+  Workflow--&gt;&gt;OwnerA: A-scoped outcomes and usage
+  Workflow--&gt;&gt;OwnerB: B-scoped outcomes and usage</pre>
+          <figcaption>
+            Two owners configure the same workflow independently. The full
+            lifecycle and exceptional paths must preserve each product’s
+            records, integrations, authority, and resource usage.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>
+            Reuse is demonstrated by varying configuration while keeping shared
+            logic unchanged.
+          </li>
+          <li>
+            Isolation is an end-to-end property: a safe intake boundary alone
+            cannot prove safe scheduling or billing.
+          </li>
+          <li>
+            Controlled integration proof and an authorized real pilot provide
+            different kinds of evidence.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Duplicating the workflow for a second product is quick but fails the
+          shared-logic goal. A single full-lifecycle happy path misses
+          cross-product authority and exceptional-state leaks. Running all proof
+          against real vendors can be costly and nondeterministic; controlled
+          adapters make failures repeatable, while the separate authorized pilot
+          establishes actual integration behavior.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            Product A’s approval is used to run product B’s ticket: deny
+            cross-product authority.
+          </li>
+          <li>
+            A retry key or scheduled weekend identity lacks product context:
+            attempts can collide or suppress each other.
+          </li>
+          <li>
+            Inventory or fulfilled evidence from one product changes the other’s
+            demand: preserve product-scoped state.
+          </li>
+          <li>
+            A controlled adapter test is described as a real pilot: report the
+            actual evidence boundary and pending authorization.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Run two product lifecycles with controlled clocks and tracker, runner,
+          usage, validation, preview, and release integrations once preceding
+          slices exist. Vary approvers, destinations, schedules, limits, and
+          inventory; deliberately swap identifiers and approval references.
+          Include rolling fallback, a stopped/reapproved attempt, delivery, and
+          next evaluation. Assert no cross-product data, authority, usage, or
+          scheduling effects. Document a separately authorized pilot and
+          reproducible owner setup outcomes.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>What would prove reuse beyond registering a second product?</li>
+          <li>
+            Which cross-product boundaries must be tested after the intake
+            phase?
+          </li>
+          <li>
+            Why are rolling fallback and a stopped attempt part of the final
+            demonstration?
+          </li>
+          <li>
+            How does controlled integration evidence differ from an authorized
+            real pilot?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-6.html">SUC-6</a>, <a href="SUC-9.html">SUC-9</a>,
+          <a href="SUC-13.html">SUC-13</a>, <a href="SUC-14.html">SUC-14</a>,
+          <a href="SUC-15.html">SUC-15</a>. See the
+          <a href="../08-open-questions.html">open questions</a> for choices
+          that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

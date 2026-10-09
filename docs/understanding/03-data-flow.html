@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>03 · Data flow · Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script defer src="assets/diagrams.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="01-product-overview.html"
+        >Feedback workflow · Understanding</a
+      >
+      <nav aria-label="Knowledge base">
+        <a href="01-product-overview.html">Product</a
+        ><a href="02-system-architecture.html">Architecture</a
+        ><a href="03-data-flow.html">Flows</a
+        ><a href="04-ticket-dependencies.html">Tickets</a
+        ><a href="05-technical-decisions.html">Decisions</a
+        ><a href="06-learning-roadmap.html">Learning</a
+        ><a href="07-glossary.html">Glossary</a
+        ><a href="08-open-questions.html">Questions</a
+        ><a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>03 · Data flow</h1>
+      <p class="meta">
+        Evidence reviewed 9 October 2026 · branch
+        <code>feature/SUC-7-group-feedback</code> · commit
+        <code>b80de3d0816df80869251b8550d1ccae07236eb4</code>. This is a branch
+        snapshot; merge and deployment status were not verified.
+      </p>
+      <p>
+        Solid sequences below describe either observed code or explicitly
+        labeled requirements. Planned participants are responsibilities to
+        implement, not existing processes, routes, or data tables. Read the
+        <a href="02-system-architecture.html">architecture</a> first if the
+        module names are unfamiliar.
+      </p>
+      <h2 id="setup">
+        1. Register and incrementally configure a product — implemented
+      </h2>
+      <p>
+        <strong>Trigger:</strong> authenticated owner submits
+        <code>POST /products</code>, then optional
+        <code>PATCH /products/:id</code>. <strong>Input:</strong> product ID,
+        name, profile; owner identity comes from the server-side token map.
+        <strong>Transformation:</strong> request shape checks, credential
+        rejection, profile merge on update, readiness calculation.
+        <strong>Persistence:</strong> Product in <code>workflow.json</code>.
+        <strong>Response:</strong> 201 registration or 200 update, with product
+        and missing readiness fields.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  actor O as Owner
+  participant H as HTTP adapter
+  participant W as Workflow
+  participant J as JSON state file
+  O->>H: POST /products with bearer token and profile
+  H->>H: Resolve token to trusted owner, parse JSON
+  H->>W: registerProduct(input, ownerId)
+  W->>W: Validate profile and required intake
+  W->>J: Read snapshot (missing file means empty state)
+  W->>W: Reject duplicate ID, add owner-bound Product
+  W->>J: Write temporary snapshot, rename to workflow.json
+  W-->>H: product and computed readiness
+  H-->>O: 201 JSON
+  O->>H: PATCH /products/id with more configuration
+  H->>W: updateProductProfile(id, patch, ownerId)
+  W->>J: Read, check owner, merge, validate, write
+  W-->>O: 200 product and new readiness
+</pre>
+        <figcaption>
+          Registration stores a reusable profile, PATCH completes it over time.
+          Repository subfields merge, while other supplied profile fields
+          replace their prior values.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failures:</strong> missing/unrecognized bearer token 401;
+        invalid profile or missing intake 400; duplicate product ID 409; update
+        of unknown product 404 or another owner's product 403. A write failure
+        does not return a successful registration. Unclassified failures
+        currently become 400 at the HTTP adapter. Sources:
+        <a href="../../src/server.ts">registration/update routes</a>,
+        <a href="../../src/workflow.ts"
+          >registerProduct, updateProductProfile, mergeProfile, readiness,
+          read/write</a
+        >; <a href="tickets/SUC-6.html">SUC-6</a>.
+      </p>
+      <h2 id="feedback">
+        2. Record original feedback and inspect it — implemented
+      </h2>
+      <p>
+        <strong>Trigger:</strong> owner submits structured feedback on behalf of
+        a customer. <strong>Input:</strong> stable customer ID, original text,
+        credential-free source reference, received date. The product ID is taken
+        from the route. <strong>Transformation:</strong> validation and
+        generated feedback ID; original text is preserved if accepted.
+        <strong>Persistence:</strong> Feedback array.
+        <strong>Response:</strong> 201 feedback object, then 200 inspection
+        result on GET.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  actor O as Owner
+  participant H as HTTP adapter
+  participant W as Workflow
+  participant J as JSON state file
+  O->>H: POST /products/atlas/feedback with structured message
+  H->>H: Authenticate and validate payload shape
+  H->>W: submitFeedback(atlas, input, ownerId)
+  W->>W: Validate text/date/source, reject credential patterns
+  W->>J: Read snapshot
+  W->>W: Check registered owner, generate per-product ID
+  W->>J: Append original evidence, write snapshot
+  W-->>O: 201 feedback with id atlas-1
+  O->>H: GET /products/atlas
+  H->>W: inspectProduct(atlas, ownerId)
+  W->>J: Read owner-scoped product and feedback
+  W-->>O: 200 product, readiness, feedback
+</pre>
+        <figcaption>
+          Messages remain evidence. Text saying “deploy now” is not executed.
+          GET inspection returns feedback and configuration, not candidate
+          history.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failures:</strong> malformed required fields or invalid
+        date/source/credential pattern 400; unauthorized product access 403;
+        unknown product 404; unauthenticated 401. HTTP bodies above 1 MB return
+        413. Date parsing uses <code>Date.parse</code>; despite the error
+        message, it is not a strict ISO grammar validator. Source references use
+        a constrained scheme such as <code>intercom:conversation:987</code>,
+        rather than arbitrary URLs. Feedback submission has no deduplication
+        key; repeating a successful POST creates another record.
+        Distinct-customer scoring will be a later responsibility, not intake
+        deduplication.
+      </p>
+      <p>
+        Sources:
+        <a href="../../src/workflow.ts"
+          >submitFeedback, inspectProduct, sourceReferencePattern</a
+        >;
+        <a href="../../test/server.test.ts"
+          >traceable feedback and instruction-in-text tests</a
+        >; <a href="tickets/SUC-6.html">SUC-6</a>.
+      </p>
+      <h2 id="analysis">
+        3. Verify inventory and persist interpreted candidates — implemented
+        branch behavior
+      </h2>
+      <p>
+        <strong>Trigger:</strong> owner first POSTs an empty object to inventory
+        verification, then submits explicit candidate groups and feature-match
+        outcomes to analysis. <strong>Transformation:</strong> compare current
+        inventory snapshot, validate feedback ownership, validate comparison
+        outcomes, perform trusted ticket lookup, reuse a candidate by key or
+        exact underlying need, deduplicate linked feedback IDs.
+        <strong>Persistence:</strong> InventoryVerification and Candidate
+        arrays. <strong>Response:</strong> 200 inventory, feature candidates,
+        and bugs with linked original evidence; only candidates submitted in
+        this request are returned.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  actor O as Owner
+  participant H as HTTP adapter
+  participant W as Workflow
+  participant J as JSON state file
+  participant T as Injected ticket finder
+  O->>H: POST /products/id/inventory-verification with {}
+  H->>W: verifyInventory(id, ownerId)
+  W->>J: Read product, require analysis-ready configuration
+  W->>J: Store owner, current inventory, repository URL, doc refs
+  W-->>O: 200 reviewed evidence snapshot
+  O->>H: POST /products/id/analysis with candidates and matches
+  H->>W: analyzeFeedback(id, interpreted input, ownerId)
+  W->>J: Read product, feedback, candidates, verification
+  W->>W: Require owner and matching current verification
+  W->>W: Require valid product feedback and feature comparisons
+  loop Each submitted candidate
+    W->>T: Find existing ticket for product and underlying need
+    T-->>W: Valid ticket or undefined
+    W->>W: Validate match, reuse candidate and union feedback IDs
+  end
+  W->>J: Write snapshot after all candidates pass
+  W-->>O: 200 inventory, featureCandidates, bugs and evidence
+</pre>
+        <figcaption>
+          The owner supplies interpretations and inventory comparisons. The
+          service validates and persists them. A ticket-finder adapter supplies
+          ticket matches, standard startup's finder returns undefined.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failures:</strong> analysis settings missing or snapshot no
+        longer matches 409; candidate key redefined or kind conflicts 409;
+        missing comparison for a feature, invalid linked feedback, duplicated
+        assignment in one request, unknown inventory reference, or uncertainty
+        without question/options 400. An invalid ticket-finder result returns
+        502. A finder that throws an untyped error gets the adapter's generic
+        400. No state snapshot is written when candidate validation or lookup
+        fails before <code>write</code>.
+      </p>
+      <p>
+        Matching verification checks ordered inventory and documentation lists
+        plus repository URL and owner. It does not read the repository. Changing
+        those references requires reverification before analysis. A change to
+        underlying file contents at the same references is not detected. The
+        default finder cannot distinguish “no ticket” from “lookup not
+        configured”; SUC-8 must resolve that distinction before claiming a
+        checked absence.
+      </p>
+      <p>
+        Sources:
+        <a href="../../src/workflow.ts"
+          >verifyInventory, analyzeFeedback, validateAnalysisInput,
+          validateMatch, hasCurrentInventoryVerification</a
+        >;
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >; <a href="tickets/SUC-7.html">SUC-7</a>.
+      </p>
+      <h2 id="evaluation">
+        4. Evaluate demand and publish a proposal — planned SUC-8/9
+      </h2>
+      <p>
+        <strong>Trigger:</strong> weekly evaluation; later invoked at the
+        configured proposal time. <strong>Participants:</strong> evaluator,
+        persisted evidence/candidates, product goals/configuration, ticket
+        publisher. <strong>Transformation:</strong> select eligible unmet
+        features or extensions without checked existing tickets; filter by time
+        and fulfillment; count unique customers per candidate; qualify and rank.
+        <strong>Persistence required:</strong> reusable proposal/ticket identity
+        and evaluation evidence. Exact schemas and routes are unresolved.
+        <strong>Result:</strong> one proposal plus alternatives, or a visible
+        no-qualifying-demand outcome.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  participant S as Evaluation trigger
+  participant E as Planned evaluator
+  participant D as Durable workflow state
+  participant T as Planned ticket adapter
+  S->>E: Evaluate product at controlled instant
+  E->>D: Load profile, eligible candidates, evidence, fulfillment
+  E->>E: Filter current week in product timezone, distinct customers
+  alt At least one current-week candidate qualifies
+    E->>E: Use current-week candidates only
+  else No current-week candidate qualifies
+    E->>E: Recalculate over rolling window from original records
+  end
+  alt A candidate qualifies in chosen window
+    E->>E: Rank count, goal alignment, smaller scope, allow override
+    E->>T: Create or update one evidence-backed proposal
+    T-->>E: Ticket identity and version reference
+    E->>D: Retain proposal identity and evaluation evidence
+    E-->>S: Proposal and alternatives, implementation awaits approval
+  else Nothing qualifies
+    E-->>S: Report skip, no invented ticket or build
+  end
+</pre>
+        <figcaption>
+          Rolling fallback depends on absent current-week qualification. Pending
+          approval does not change which demand window is evaluated.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failures to design:</strong> tracker unavailable, ambiguous
+        eligibility, stale checked ticket state, undefined calendar week, and
+        duplicate events. Required behavior includes duplicate prevention and
+        explainable counts; atomic publication/retry mechanics are not selected.
+        Defaults of three customers and four calendar weeks are specified, but
+        profile fields for these options are not implemented. Sources:
+        <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>,
+        <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>,
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >candidate eligibility contract</a
+        >.
+      </p>
+      <h2 id="execution">
+        5. Approve, execute, review, and handle a stop — planned SUC-10–14
+      </h2>
+      <p>
+        <strong>Trigger:</strong> configured approver explicitly approves
+        settled ticket scope; a permitted manual or scheduled start follows.
+        <strong>Transformation:</strong> verify version, authority, policy,
+        time, configuration, active attempt, and enforceable limits; perform
+        bounded work and assemble validation evidence.
+        <strong>Persistence required:</strong> approval evidence, ticket
+        version, distinct attempt identity, usage/progress, PR/review
+        references. Schemas and runner vendor are unresolved.
+        <strong>Result:</strong> reviewable PR and applicable preview, or
+        preserved draft with blockers and remaining work.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  actor A as Configured approver
+  participant W as Planned workflow
+  participant D as Durable approval and attempt state
+  participant R as Controlled runner and usage adapters
+  participant V as Validation and preview adapters
+  A->>W: Approve settled ticket version V1
+  W->>D: Store verified approval bound to V1
+  W->>W: At start recheck version, readiness, review, schedule, limits
+  W->>D: Reserve distinct attempt, reject duplicate start
+  loop While authorized work and limits permit
+    W->>R: Check budget before next metered action, bounded work
+    R-->>W: Changes, usage, progress or stop reason
+  end
+  W->>V: Validate acceptance evidence and applicable preview
+  V-->>W: Check results, missing evidence, preview or failure
+  W->>D: Save review artifacts, usage, status and remaining work
+  alt Stopped or incomplete
+    W-->>A: Draft PR and report, fresh approval needed to resume
+  else Review package complete
+    W-->>A: Tested PR and review package, deployment separate
+  end
+</pre>
+        <figcaption>
+          Approval is bound to scope. Every attempt must be bounded and
+          deduplicated. Validation failure keeps work draft, reapproval is
+          required for continuation.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failure requirements:</strong> wrong approver, unresolved scope,
+        invalidated version, missed deadline, out-of-window start, unsupported
+        limit enforcement, exhausted runtime/spending, failed required checks,
+        scope expansion, and duplicate starts/resumptions must not silently
+        proceed. A retained proposal may be reconsidered later under applicable
+        approval rules. Fresh approval and a distinct continuation attempt are
+        required after a stop. Crash recovery, atomic claims, and cancellation
+        mechanics remain design decisions.
+      </p>
+      <p>
+        Sources: <a href="tickets/SUC-10.html">SUC-10</a>,
+        <a href="tickets/SUC-11.html">SUC-11</a>,
+        <a href="tickets/SUC-12.html">SUC-12</a>,
+        <a href="tickets/SUC-13.html">SUC-13</a>,
+        <a href="tickets/SUC-14.html">SUC-14</a>.
+      </p>
+      <h2 id="delivery">
+        6. Confirm delivery and retire satisfied demand — planned SUC-15
+      </h2>
+      <p>
+        <strong>Trigger:</strong> verified configured release signal or explicit
+        owner delivery confirmation. <strong>Transformation:</strong> compare
+        delivered scope against linked evidence, identify complete and partial
+        satisfaction, retain unmet extensions, escalate uncertainty.
+        <strong>Persistence required:</strong> delivery identity/scope,
+        fulfillment audit links, updated inventory.
+        <strong>Result:</strong> later evaluations exclude only satisfied
+        evidence, with original feedback retained.
+      </p>
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  actor C as Owner or verified release integration
+  participant W as Planned delivery workflow
+  participant D as Durable workflow state
+  participant E as Later evaluator
+  C->>W: Confirm delivered ticket and scope with evidence
+  W->>W: Verify source and deduplicate delivery signal
+  W->>D: Load original feedback and delivered scope
+  alt Fulfillment match is clear
+    W->>D: Link satisfied evidence, update feature inventory
+    W-->>C: Confirm recorded fulfillment, preserve source feedback
+  else Fulfillment is ambiguous
+    W-->>C: Clarification question and interpretations
+  end
+  E->>D: Read current candidates, evidence and fulfillment
+  D-->>E: Satisfied evidence excluded, unmet extensions retained
+</pre>
+        <figcaption>
+          Delivery changes eligibility. A PR or merge event alone cannot mark
+          customer requests satisfied.
+        </figcaption>
+      </figure>
+      <p>
+        <strong>Failures to handle:</strong> unverified release source, repeated
+        signals, wrong product, partially delivered scope, ambiguous
+        satisfaction, interrupted inventory/fulfillment update. Idempotency and
+        retained unmet demand are explicit requirements; the transaction design
+        and delivery-verification protocol remain unresolved. See
+        <a href="tickets/SUC-15.html">SUC-15</a>.
+      </p>
+      <h2 id="practice">Trace a concrete example</h2>
+      <p>
+        Alice asks for “Excel export,” the inventory says “CSV export,” and the
+        owner has not clarified whether CSV satisfies her. Explain where the
+        original message lives, where the uncertainty lives, which operation
+        currently records it, and why that uncertainty cannot authorize a
+        proposal or a build. Learner status: not assessed.
+      </p>
+      <footer>
+        Update flows when interfaces or durable contracts change. Preserve each
+        previous decision through linked ADR history; see
+        <a href="README.md">maintenance rules</a>.
+      </footer>
+    </main>
+  </body>
+</html>

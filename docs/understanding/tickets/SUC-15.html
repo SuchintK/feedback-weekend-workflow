@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      SUC-15 — Confirm delivery and retire only satisfied demand | Feedback
+      workflow learning
+    </title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="../assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Learning dashboard">
+        <a href="../01-product-overview.html">Overview</a> ·
+        <a href="../04-ticket-dependencies.html">Ticket map</a> ·
+        <a href="../06-learning-roadmap.html">Learning</a> ·
+        <a href="../08-open-questions.html">Questions</a> ·
+        <a href="../README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1>SUC-15: Confirm delivery and retire only satisfied demand</h1>
+      <p class="meta">
+        Linear status: Backlog · Evidence date:
+        <time datetime="2026-10-09">2026-10-09</time> · Local branch:
+        <code>feature/SUC-7-group-feedback</code> · HEAD: <code>b80de3d</code>.
+      </p>
+      <p>
+        Requirements and status come from the live Linear evidence supplied by
+        the main agent. Local behavior is based on repository inspection, not a
+        fresh test run or proof of merge.
+        <a
+          href="https://linear.app/suchint/issue/SUC-15/confirm-delivery-and-retire-only-satisfied-demand"
+          >Read the original SUC-15 issue</a
+        >; parent:
+        <a
+          href="https://linear.app/suchint/issue/SUC-5/reusable-customer-feedback-to-weekend-build-workflow"
+          >SUC-5</a
+        >. Source user stories: 18, 19, 20, 36, 37.
+      </p>
+      <section>
+        <h2>Problem and why it matters</h2>
+        <p>
+          Implementation progress is different from delivery. A draft PR, merge,
+          or successful check may still leave customers without the requested
+          behavior. Once delivery is verified, the workflow must retire only the
+          evidence actually satisfied so partial fulfillment and new extensions
+          remain visible in later demand calculations.
+        </p>
+      </section>
+      <section>
+        <h2>Architecture connection</h2>
+        <p>
+          This closes the loop between SUC-8 proposal evidence, SUC-12 review
+          output, and the verified inventory/candidates established by
+          <a href="../../adr/0002-persist-evidence-backed-candidate-analysis.md"
+            >ADR 0002</a
+          >. Original feedback remains durable evidence even when it stops
+          contributing to demand. Inventory updates need coordination with the
+          current verification snapshot rather than silently treating an old
+          snapshot as current.
+        </p>
+      </section>
+      <section>
+        <h2>Source acceptance criteria</h2>
+        <p>
+          The following criteria reproduce the supplied Linear wording. Checkbox
+          completion is not inferred from the issue status.
+        </p>
+        <ul>
+          <li>
+            Require a verified configured release signal or explicit owner
+            delivery confirmation; a pull request or merge alone does not
+            fulfill demand.
+          </li>
+          <li>
+            Link delivered scope to the evidence it satisfies, retain original
+            records, and exclude only that satisfied evidence from later demand
+            calculations.
+          </li>
+          <li>
+            Update the inventory after delivery; retain unmet extensions and
+            escalate ambiguous fulfillment matches with suggested
+            interpretations.
+          </li>
+          <li>
+            Process repeated delivery signals idempotently and keep pending or
+            unfinished builds from retiring demand.
+          </li>
+          <li>
+            Verify a full proposal-to-build-to-delivery-to-next-evaluation path,
+            including partial fulfillment and new extension requests.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Dependencies and successor obligations</h2>
+        <p>
+          Direct blockers: <a href="SUC-8.html">SUC-8</a>,
+          <a href="SUC-12.html">SUC-12</a>. Direct successors blocked by this
+          ticket: <a href="SUC-16.html">SUC-16</a>.
+        </p>
+        <p>
+          SUC-8 supplies the proposal-to-candidate/evidence lineage; SUC-12
+          supplies reviewed changes and acceptance evidence. Both are direct
+          blockers. SUC-16 needs a complete delivery-to-next-evaluation
+          demonstration for each product. Future evaluations must consume
+          satisfied-evidence exclusions; this obligation does not introduce a
+          new native dependency edge.
+        </p>
+      </section>
+      <section>
+        <h2>Current implementation versus planned work</h2>
+        <p>
+          Backlog and absent locally. Candidates can be marked fulfilled or
+          unmet-extension during owner-reviewed analysis, but that does not
+          implement verified delivery. There is no release-signal adapter,
+          delivery confirmation, scope-to-evidence fulfillment ledger, or later
+          demand evaluator. Existing profile fields also do not explicitly model
+          a release-verification policy.
+        </p>
+      </section>
+      <section>
+        <h2>Proposed approach — mentor analysis</h2>
+        <p>
+          This section explains a possible implementation; it is not an accepted
+          design, a new requirement, or authorization to build.
+        </p>
+        <p>
+          As mentor analysis, verify the configured release signal or
+          authenticated owner confirmation, identify delivered scope, and match
+          that scope to particular evidence. Persist a delivery/fulfillment
+          record while retaining originals. Exclude only satisfied evidence from
+          future counts, update inventory, and surface ambiguous matches with
+          interpretations instead of assuming all linked requests are fulfilled.
+        </p>
+        <p>
+          Release identity/authentication, partial fulfillment within a single
+          feedback record, inventory reverification, and a durable
+          delivery-idempotency identity need design. A PR identifier may connect
+          review evidence, but cannot be the delivery proof by itself.
+        </p>
+      </section>
+      <section>
+        <h2>Expected files and existing seams</h2>
+        <p>
+          Inspect feedback, candidates, inventory verification, and profile
+          types in <a href="../../../src/workflow.ts">src/workflow.ts</a>.
+          <a href="../../../src/server.ts">src/server.ts</a> provides the
+          current authenticated owner seam; a future signal receiver is absent.
+          <a href="../../../test/server.test.ts">test/server.test.ts</a>
+          provides the observable workflow testing convention. No release module
+          path is approved.
+        </p>
+        <p>
+          These are existing repository paths to inspect or potentially extend.
+          Future module names and a final file split have not been approved.
+        </p>
+      </section>
+      <section>
+        <h2>ProductProfile inputs</h2>
+        <p>
+          Consumes <code>inventory</code>, <code>repository</code>/documentation
+          context, <code>ticketDestination</code>, and applicable
+          <code>integrations</code>. Product owner identity is on the product,
+          not a ProductProfile field, and governs explicit owner confirmation. A
+          configured release signal and its verification policy have no
+          dedicated current profile representation.
+        </p>
+      </section>
+      <section>
+        <h2>Durable state and readiness</h2>
+        <p>
+          <strong>Proposed backlog state:</strong> verified delivery evidence,
+          delivered scope, matched feedback/candidate links, satisfied versus
+          remaining scope, signal idempotency identity, and resulting inventory
+          change. A fulfillment ledger is a proposed representation, not an
+          accepted schema. Original feedback must remain available.
+        </p>
+        <p>
+          <strong>Readiness:</strong> delivery does not grant execution
+          authority or automatically change current readiness flags. Updating
+          inventory can make SUC-7’s old verification snapshot stale; how
+          delivery verification establishes a current inventory record remains
+          an open contract. Demand eligibility changes only for satisfied
+          evidence.
+        </p>
+      </section>
+      <section>
+        <h2>Data flow</h2>
+        <figure>
+          <pre class="mermaid">
+sequenceDiagram
+  participant Release as Release signal or owner confirmation
+  participant Delivery as Proposed delivery verification
+  participant Evidence as Original evidence and proposed fulfillment links
+  participant Inventory
+  participant Evaluation as Next demand evaluation
+  Release-&gt;&gt;Delivery: Claim delivered scope
+  Delivery-&gt;&gt;Delivery: Verify signal or owner authority
+  Delivery-&gt;&gt;Evidence: Link only satisfied scope, preserve originals
+  Delivery-&gt;&gt;Inventory: Update delivered functionality
+  Evaluation-&gt;&gt;Evidence: Read eligible evidence excluding satisfied demand
+  Evidence--&gt;&gt;Evaluation: Remaining unmet scope and extensions</pre>
+          <figcaption>
+            Verified delivery connects actual scope to evidence, updates
+            inventory, and lets later evaluations exclude only satisfied demand
+            while retaining unmet extensions.
+          </figcaption>
+        </figure>
+        <p>
+          The diagram may remain visible as source when the shared renderer is
+          unavailable.
+        </p>
+      </section>
+      <section>
+        <h2>Concepts to learn</h2>
+        <ul>
+          <li>Delivery evidence and review evidence prove different events.</li>
+          <li>
+            Retiring a record from demand does not require deleting its history.
+          </li>
+          <li>
+            Partial fulfillment requires scope-sensitive matching rather than a
+            blanket delivered flag on a broad candidate.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Alternatives and tradeoffs</h2>
+        <p>
+          Marking a whole ticket fulfilled is simple but can erase unmet
+          extensions. Deleting feedback loses provenance and prevents auditing.
+          Scope-to-evidence links preserve nuance but introduce ambiguity when a
+          single message requests several behaviors. Owner confirmation is an
+          explicit supported path; automated release verification needs a
+          configured trust policy.
+        </p>
+      </section>
+      <section>
+        <h2>Failure scenarios</h2>
+        <ul>
+          <li>
+            A PR merges but no verified delivery is recorded: keep demand
+            eligible.
+          </li>
+          <li>
+            Only one requested export format is delivered: retain the unmet
+            extension.
+          </li>
+          <li>
+            A release webhook repeats: process the same delivery without
+            retiring additional evidence.
+          </li>
+          <li>
+            A delivery match is ambiguous: present questions and suggested
+            interpretations rather than guessing fulfillment.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Test strategy</h2>
+        <p>
+          Exercise proposal → build/review → verified delivery → next evaluation
+          with controlled tracker, runner, release, and clock integrations.
+          Cover owner confirmation, rejected/unverified signal, repeated
+          delivery, pending builds, partial fulfillment, and later extension
+          feedback. Assert original records remain, inventory changes are
+          visible, and only satisfied eligible evidence stops contributing to
+          counts. Snapshot freshness behavior needs an explicit decision.
+        </p>
+      </section>
+      <section>
+        <h2>Explain it back</h2>
+        <ol>
+          <li>
+            Why are a merged PR and a successful review package insufficient to
+            retire demand?
+          </li>
+          <li>
+            How can a broad request be partly satisfied while preserving its
+            remaining demand?
+          </li>
+          <li>Which identity makes repeated delivery signals idempotent?</li>
+          <li>
+            What happens to SUC-7 verification when delivery updates inventory?
+          </li>
+        </ol>
+        <p>Learner status: not assessed; no answer recorded</p>
+      </section>
+      <section>
+        <h2>Related learning and evidence</h2>
+        <p>
+          <a href="SUC-7.html">SUC-7</a>, <a href="SUC-8.html">SUC-8</a>,
+          <a href="SUC-12.html">SUC-12</a>, <a href="SUC-16.html">SUC-16</a>.
+          See the <a href="../08-open-questions.html">open questions</a> for
+          choices that still need decisions.
+        </p>
+        <p>
+          The supplied live issue is the requirement source; accepted ADRs
+          establish durable architecture, while source and tests establish
+          observed local behavior. Historical planning:
+          <a href="../../../published-tickets.md">publication record</a> and
+          <a href="../../../ticket-breakdown-draft.md">original breakdown</a>.
+          The draft’s unpublished notice predates the publication record.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

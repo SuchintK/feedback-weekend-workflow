@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open questions — Feedback workflow</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="assets/diagrams.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <nav aria-label="Documentation">
+        <a href="01-product-overview.html">Overview</a>
+        <a href="02-system-architecture.html">Architecture</a>
+        <a href="03-data-flow.html">Flows</a>
+        <a href="04-ticket-dependencies.html">Tickets</a>
+        <a href="05-technical-decisions.html">Decisions</a>
+        <a href="06-learning-roadmap.html">Learning</a>
+        <a href="07-glossary.html">Glossary</a>
+        <a href="08-open-questions.html" aria-current="page">Questions</a>
+        <a href="README.md">Dashboard</a>
+      </nav>
+    </header>
+    <main>
+      <h1 id="open-questions">Open questions</h1>
+      <p>
+        This register separates missing capabilities, unsettled contracts,
+        documentation discrepancies, and learner questions. A code limitation is
+        evidence of a boundary; a hypothetical failure scenario is not an
+        observed bug.
+      </p>
+      <p>
+        <strong>Evidence baseline:</strong> 2026-10-09, HEAD
+        <code>b80de3d</code>, branch <code>feature/SUC-7-group-feedback</code>.
+        During discovery, <code>npm test</code> passed all seven tests and
+        <code>npm run typecheck</code> passed. PR merge and deployment remain
+        unverified.
+      </p>
+      <p>
+        Live statuses and native relations were verified during discovery:
+        <a href="https://linear.app/suchint/issue/SUC-6">SUC-6</a> Done,
+        <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a> In Progress,
+        SUC-8–16 Backlog; dependencies match
+        <a href="../../published-tickets.md">published-tickets.md</a>. “Blocking
+        tickets” below identifies work affected by a question, not an additional
+        native Linear blocking relation.
+      </p>
+      <p>
+        <strong>Priority:</strong> P0 questions should be resolved before
+        dependent contracts or activation are finalized; P1 questions should
+        guide implementation and verification; P2 questions concern operational
+        clarity and documentation follow-through. Every entry remains open. This
+        page does not approve a design or authorize external changes.
+      </p>
+
+      <h2 id="p0-contracts">P0 — contracts required by dependent work</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Implementation gaps and unsettled domain contracts
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Topic and question</th>
+              <th scope="col">Evidence</th>
+              <th scope="col">Impact / blocking tickets</th>
+              <th scope="col">How to resolve</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="p0-ticket-finder">
+              <th scope="row">
+                Real ticket finder: what makes “no existing ticket” a checked
+                result?
+              </th>
+              <td>
+                Confirmed integration gap:
+                <a href="../../src/start.ts">startup</a> passes only the
+                authenticator.
+                <a href="../../src/server.ts">createWorkflowServer</a> defaults
+                the finder to undefined output.
+                <a href="../../src/workflow.ts">ExistingTicketFinder</a> returns
+                ticket or undefined with no distinct unavailable/not-checked
+                result.
+              </td>
+              <td>
+                A default absence cannot establish that a tracker was queried.
+                Affects
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+                completion semantics and
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+                proposal eligibility under
+                <a
+                  href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+                  >ADR 0002</a
+                >.
+              </td>
+              <td>
+                Define checked absence versus unavailable lookup, choose startup
+                configuration and credential handling, decide whether the seam
+                must become asynchronous, then verify hit/miss/failure behavior
+                with controlled integration tests.
+              </td>
+              <td>Open — integration gap</td>
+            </tr>
+            <tr id="p0-demand">
+              <th scope="row">
+                Demand policy: where will threshold and rolling-window settings
+                live?
+              </th>
+              <td>
+                Confirmed schema gap:
+                <a href="../../src/workflow.ts">ProductProfile</a> has no
+                threshold or rolling-window fields.
+                <a href="tickets/SUC-8.html">SUC-8</a> and
+                <a href="tickets/SUC-9.html">SUC-9</a> specify configurable
+                defaults of three distinct customers and current week plus three
+                preceding weeks.
+              </td>
+              <td>
+                Counting, fallback, and explainable proposal selection need a
+                durable policy. Blocks contract completion for
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a> and
+                <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>.
+              </td>
+              <td>
+                Specify field names, units, valid ranges, defaults for existing
+                profiles, customer-identity assumptions, and eligibility rules.
+                Verify repeated customers, boundaries, and current-week
+                precedence.
+              </td>
+              <td>Open — missing configuration contract</td>
+            </tr>
+            <tr id="p0-time-money">
+              <th scope="row">
+                Time and money: what do week, build window, and spending limit
+                mean?
+              </th>
+              <td>
+                Unsettled contract:
+                <a href="../../src/workflow.ts">hasValidTimezone and hasTime</a>
+                check timezone and HH:MM readiness, while buildWindow is
+                arbitrary non-empty text and spendingLimit is a positive number.
+                No currency or week-start field exists.
+              </td>
+              <td>
+                Window interpretation and monetary units affect
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>,
+                <a href="https://linear.app/suchint/issue/SUC-9">SUC-9</a>,
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>,
+                and
+                <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>. A
+                non-empty build window is not an executable schedule.
+              </td>
+              <td>
+                Agree week start, inclusive/exclusive boundaries,
+                daylight-saving behavior, schedule grammar, deadline ordering,
+                spending currency, rounding, and accounting units. Use concrete
+                boundary examples before implementing a scheduler or usage
+                adapter.
+              </td>
+              <td>Open — policy definition</td>
+            </tr>
+            <tr id="p0-approval">
+              <th scope="row">
+                Approval and activation: what durable evidence permits an
+                attempt?
+              </th>
+              <td>
+                Planned capability:
+                <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a>
+                distinguishes declaration from activation. Current
+                <a href="../../src/workflow.ts">buildOnlyRequirements</a> checks
+                declared profile values; no approval, ticket version,
+                activation, or attempt record exists.
+              </td>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-10">SUC-10</a> and
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>
+                must establish authorization and measured/enforced limits before
+                <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>
+                scheduling or
+                <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>
+                continuation.
+              </td>
+              <td>
+                Define version-bound scope approval, material-change
+                invalidation, activated integration evidence, unique attempt
+                identity, and resource enforcement contracts. Test denial,
+                duplicate events, exhaustion, and fresh continuation approval.
+              </td>
+              <td>Open — backlog design</td>
+            </tr>
+            <tr id="p0-grouping">
+              <th scope="row">
+                Grouping responsibility: is owner-supplied exact-string
+                interpretation the intended long-term interface?
+              </th>
+              <td>
+                Confirmed behavior:
+                <a href="../../src/server.ts">asAnalysisInput</a> accepts
+                explicit groups;
+                <a href="../../src/workflow.ts">analyzeFeedback</a> reuses exact
+                underlyingNeed strings. There is no AI engine or automatic
+                semantic grouping.
+              </td>
+              <td>
+                Affects
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a> user
+                expectations and stable candidates consumed by
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>.
+                Differently expressed need strings may create separate records;
+                semantic duplication is not demonstrated by current tests.
+              </td>
+              <td>
+                Confirm the manual analysis contract. If automation is desired,
+                specify who proposes and verifies groups, canonical need
+                identity, feedback reassignment rules, and handling for
+                multi-need messages before introducing it.
+              </td>
+              <td>Open — product/interface decision</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="p1-implementation">
+        P1 — implementation and verification boundaries
+      </h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Questions supported by inspected source, without claiming observed
+            incidents
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Topic and question</th>
+              <th scope="col">Evidence</th>
+              <th scope="col">Impact / blocking tickets</th>
+              <th scope="col">How to resolve</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="p1-verification">
+              <th scope="row">
+                Evidence freshness: should verification bind to repository
+                content?
+              </th>
+              <td>
+                <a href="../../src/workflow.ts">inventoryEvidence</a> stores URL
+                and ordered documentation/inventory strings.
+                <code>hasCurrentInventoryVerification</code> compares those
+                values. It does not capture commit, content, provider/reference,
+                or verification time. analysisReady does not include this
+                comparison.
+              </td>
+              <td>
+                Clarifies the strength of the
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>
+                verification gate and downstream
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+                eligibility. Changing remote content behind an unchanged URL is
+                not detected.
+              </td>
+              <td>
+                Decide whether string acknowledgement is sufficient or
+                commit/content evidence is required. Specify invalidating
+                changes and whether readiness should expose a separate
+                verification state; test stale and unchanged evidence.
+              </td>
+              <td>Open — evidence contract</td>
+            </tr>
+            <tr id="p1-storage">
+              <th scope="row">
+                Storage: what concurrency and recovery guarantees are required?
+              </th>
+              <td>
+                <a href="../../src/workflow.ts">read/write</a> use synchronous
+                whole-file JSON and a fixed .tmp path. ENOENT means empty state.
+                There is no multi-process lock, schema validation/version,
+                backup, migration, or fsync protocol.
+                <code>inspectProduct</code> reads twice.
+              </td>
+              <td>
+                Relevant to durable SUC-6/7 data and future attempt, scheduler,
+                continuation, and delivery records in
+                <a href="https://linear.app/suchint/issue/SUC-11">SUC-11</a>,
+                <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>,
+                <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>,
+                <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>.
+                Concurrent-writer and crash scenarios are untested; no loss
+                incident was observed.
+              </td>
+              <td>
+                State the supported process model and durability target.
+                Evaluate locking or transactional storage against it, define
+                malformed-data recovery and migration, then test restart,
+                interrupted writes, and concurrent updates where supported.
+              </td>
+              <td>Open — operating guarantee</td>
+            </tr>
+            <tr id="p1-errors">
+              <th scope="row">
+                Failures: which errors should callers retry, and what details
+                should be exposed?
+              </th>
+              <td>
+                <a href="../../src/server.ts">catch block</a> maps generic
+                exceptions to 400 with their message.
+                <a href="../../src/workflow.ts">validateExistingTicket</a>
+                explicitly uses 502 for invalid id/title, but a thrown finder or
+                filesystem exception is generic.
+              </td>
+              <td>
+                Caller diagnosis and retry behavior for SUC-6/7 and later
+                external integrations. The classification is confirmed by code;
+                actual storage failure behavior has not been exercised here.
+              </td>
+              <td>
+                Define public error categories and retry semantics; distinguish
+                malformed input, integration outage, and storage failure. Verify
+                error responses and state preservation through controlled
+                failures.
+              </td>
+              <td>Open — failure contract</td>
+            </tr>
+            <tr id="p1-credentials">
+              <th scope="row">
+                Credential handling: what precise guarantee can documentation
+                make?
+              </th>
+              <td>
+                <a href="../../README.md">README</a> says credentials are never
+                accepted in profiles, feedback, or tickets.
+                <a href="../../src/workflow.ts">rejectCredentials</a> uses
+                patterns; submitFeedback scans originalText and constrains
+                sourceReference but does not scan every text field. Analysis
+                strings and ticket finder id/title have no credential scan.
+                There is no ticket-writing implementation.
+              </td>
+              <td>
+                Current documentation is broader than the implemented checks.
+                Affects SUC-6/7 contracts and future ticket publication in
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>. This
+                is a scope discrepancy, not evidence that secrets were
+                submitted.
+              </td>
+              <td>
+                Define supported input and redaction/rejection policy. Document
+                the current heuristic precisely and add meaningful field/adapter
+                tests if a stronger guarantee is required.
+              </td>
+              <td>Open — documentation/validation scope</td>
+            </tr>
+            <tr id="p1-candidates">
+              <th scope="row">
+                Candidate lifecycle: how should owners inspect, revise, or
+                retire durable analysis?
+              </th>
+              <td>
+                <a href="../../src/workflow.ts">analyzeFeedback</a> unions
+                feedback IDs, permits repeated evidence across separate
+                requests, and returns only candidates in the current call. GET
+                inspection excludes candidates. Bug output omits
+                comparison/ticket details; no retirement or reassignment
+                operation exists.
+              </td>
+              <td>
+                Durable evidence management for
+                <a href="https://linear.app/suchint/issue/SUC-7">SUC-7</a>,
+                demand evaluation in
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>, and
+                selective retirement in
+                <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>.
+              </td>
+              <td>
+                Specify candidate retrieval, correction, identity, evidence
+                reassignment, and delivery/retirement semantics. Decide whether
+                bugs need visible ticket comparison. Test state across repeated
+                analyses rather than assuming global uniqueness.
+              </td>
+              <td>Open — lifecycle interface</td>
+            </tr>
+            <tr id="p1-tests">
+              <th scope="row">
+                Test evidence: which missing cases are required for the current
+                and next slice?
+              </th>
+              <td>
+                <a href="../../test/server.test.ts">Seven tests</a> cover
+                representative HTTP paths. No restart, storage
+                corruption/failure, concurrent writers, real startup/finder
+                wiring, complete buildReady, two-product isolation, or
+                downstream lifecycle case exists. Many validation branches lack
+                direct assertions.
+              </td>
+              <td>
+                Bounds confidence for SUC-6/7 and acceptance planning for
+                SUC-8–16. One test title mentions uncertain fulfillment while
+                its assertions only check configuration isolation and blocked
+                analysis; another test covers actual uncertainty.
+              </td>
+              <td>
+                Map acceptance criteria to assertions. Add focused observable
+                tests for required missing guarantees, including verification
+                invalidation, cross-product IDs, finder failure, and candidate
+                conflicts; keep integration doubles controlled.
+              </td>
+              <td>Open — coverage plan</td>
+            </tr>
+            <tr id="p1-validation">
+              <th scope="row">
+                Input semantics: which values should be rejected versus stored
+                as incomplete?
+              </th>
+              <td>
+                <a href="../../src/workflow.ts">submitFeedback</a> uses
+                Date.parse despite an ISO-8601 error message. Profile validation
+                accepts non-empty timezone/time strings, while readiness
+                separately rejects invalid zones or non-HH:MM times. HTTP
+                rejects unknown profile/repository fields but ignores some extra
+                fields elsewhere.
+              </td>
+              <td>
+                API expectations for SUC-6/7 and scheduling in
+                <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>.
+                Current behavior is broader or differently staged than some
+                error wording implies.
+              </td>
+              <td>
+                Specify canonical date formats, normalization,
+                incomplete-setting behavior, and unknown-field policy. Align
+                parsing, readiness, and user-facing messages; test explicit
+                valid and invalid examples.
+              </td>
+              <td>Open — validation consistency</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="p1-product-policy">P1 — product and lifecycle policies</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Question</th>
+              <th scope="col">Evidence and affected tickets</th>
+              <th scope="col">How to resolve</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="p1-ranking">
+              <th scope="row">
+                How are goal alignment, smaller scope, and exact ranking ties
+                evaluated?
+              </th>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-8">SUC-8</a>
+                specifies ranking order and owner override, but no scoring
+                rubric, scope estimation method, or final tie rule was found.
+                None is implemented.
+              </td>
+              <td>
+                Work through two equally popular candidates with competing goals
+                and different estimated sizes; record deterministic evidence and
+                override behavior before finalizing evaluator output.
+              </td>
+              <td>Open — ranking policy</td>
+            </tr>
+            <tr id="p1-intake">
+              <th scope="row">
+                Will customers submit directly, and how is stable customer
+                identity established?
+              </th>
+              <td>
+                SUC-5 calls for standard structured feedback.
+                <a href="../../src/server.ts">Current feedback routes</a>
+                require owner authentication and accept customerId as
+                attribution. SUC-6/8/16 need clear intake and isolation
+                expectations.
+              </td>
+              <td>
+                Define owner-mediated versus direct submission, identity
+                provenance, and an authorized pilot intake without assuming an
+                existing public form or connector.
+              </td>
+              <td>Open — intake contract</td>
+            </tr>
+            <tr id="p1-review-policy">
+              <th scope="row">
+                Who approves restricted-area work, and what counts as an
+                applicable preview?
+              </th>
+              <td>
+                SUC-5 names additional review for authentication, billing,
+                database migrations, and customer-data handling; SUC-11 consumes
+                that policy. SUC-12 requires a preview where applicable, while
+                current build readiness always requires previewInstructions.
+              </td>
+              <td>
+                Specify the review evidence and responsible actor; use a web app
+                and a nonvisual service example to define preview applicability
+                and required-check behavior.
+              </td>
+              <td>Open — review policy</td>
+            </tr>
+            <tr id="p1-delivery-contract">
+              <th scope="row">
+                What verifies a release signal, partial fulfillment, and an
+                inventory update as one consistent outcome?
+              </th>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>
+                requires verified delivery, selective retirement, retained
+                evidence, and idempotent signals. No delivery adapter,
+                fulfillment ledger, or update transaction exists.
+              </td>
+              <td>
+                Define product/ticket/scope identity, signal authenticity, owner
+                confirmation evidence, repeated-signal handling, and recovery if
+                inventory or fulfillment updates fail. Trace a partially
+                delivered spreadsheet-export request.
+              </td>
+              <td>Open — delivery contract</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="p2-documentation">P2 — documentation and operational evidence</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Reconcile evidence without treating issue text as implementation
+            truth
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Topic and question</th>
+              <th scope="col">Evidence</th>
+              <th scope="col">Impact / blocking tickets</th>
+              <th scope="col">How to resolve</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="p2-stale-parent">
+              <th scope="row">
+                Parent issue: which historical statements need updating?
+              </th>
+              <td>
+                <a href="https://linear.app/suchint/issue/SUC-5">SUC-5</a> is In
+                Progress with stale “no application code,” “implementation not
+                started,” and “testing awaits confirmation” claims. Current
+                source implements a service;
+                <a href="../../published-tickets.md">published-tickets.md</a>
+                records user-approved testing and publication. The draft still
+                says unpublished.
+              </td>
+              <td>
+                Confuses implementation and authorization status across
+                SUC-6–16; does not block this learning documentation or require
+                renewed testing permission.
+              </td>
+              <td>
+                In a separately scoped documentation update, reconcile the
+                parent and historical documentation. This task preserves
+                existing sources. Link current code, issue statuses, and the
+                approved testing record; preserve historical context explicitly.
+              </td>
+              <td>Open — stale evidence</td>
+            </tr>
+            <tr id="p2-readiness-docs">
+              <th scope="row">
+                README: should readiness and analysis visibility be described
+                more precisely?
+              </th>
+              <td>
+                <a href="../../README.md">README</a> says records retain
+                readiness status.
+                <a href="../../src/workflow.ts">StoredWorkflow and readiness</a>
+                show that readiness is computed. The verification gate, manual
+                grouping, absent real finder, and absence of a
+                candidate-inspection route need clear operational explanation.
+              </td>
+              <td>
+                Affects learner and API-user expectations for SUC-6/7; no change
+                to native dependencies.
+              </td>
+              <td>
+                A future README update should distinguish stored data, derived
+                flags, verification freshness, owner-supplied interpretations,
+                and injected versus configured integrations. Cross-check against
+                <a href="07-glossary.html#components">the component index</a>.
+              </td>
+              <td>Open — documentation precision</td>
+            </tr>
+            <tr id="p2-release">
+              <th scope="row">
+                Release evidence: has this branch been merged or deployed
+                anywhere?
+              </th>
+              <td>
+                Local HEAD is b80de3d on feature/SUC-7-group-feedback. Source
+                history shows SUC-6 service work and three SUC-7 analysis
+                commits. A matching remote-tracking ref is not proof of PR merge
+                or deployment; neither was verified.
+              </td>
+              <td>
+                Operational status for SUC-6/7 and future
+                <a href="https://linear.app/suchint/issue/SUC-16">SUC-16</a>
+                pilot documentation. No claim of a live service should be
+                inferred.
+              </td>
+              <td>
+                When in scope, inspect PR state and authorized deployment
+                evidence separately. Record artifact/commit, environment, and
+                verification date before making release claims.
+              </td>
+              <td>Open — unverified external state</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="learning-unknowns">
+        Learner questions — separate from system gaps
+      </h2>
+      <p>
+        No learner explanation has been assessed. These pending questions are
+        study prompts, not product defects or implementation blockers. Use
+        <a href="06-learning-roadmap.html#explain-back-lessons"
+          >the stepwise lessons</a
+        >
+        and <a href="07-glossary.html">glossary</a>; close a learning question
+        only after recording a correct explanation and its evidence.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            All learner questions remain open
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Topic</th>
+              <th scope="col">Learning evidence / prompt</th>
+              <th scope="col">Impact / ticket context</th>
+              <th scope="col">How to resolve</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Identity and authority</th>
+              <td>
+                No explain-back recorded. Can the learner distinguish token
+                owner identity from Feedback.customerId?
+              </td>
+              <td>Foundation for SUC-6/7; no system blocker asserted.</td>
+              <td>
+                Trace <a href="../../src/server.ts">ownerFrom</a> and
+                <a href="../../src/workflow.ts">productForOwner</a>; explain a
+                wrong-owner request.
+              </td>
+              <td>Open — learner unassessed</td>
+            </tr>
+            <tr>
+              <th scope="row">Readiness and verification</th>
+              <td>
+                No explain-back recorded. Can analysisReady be true while
+                analysis is denied?
+              </td>
+              <td>Foundation for SUC-7/11; no system blocker asserted.</td>
+              <td>
+                Compare readiness predicates with the separate verification gate
+                and give one stale-evidence example.
+              </td>
+              <td>Open — learner unassessed</td>
+            </tr>
+            <tr>
+              <th scope="row">Grouping and comparisons</th>
+              <td>
+                No explain-back recorded. Which decisions are supplied by the
+                owner and which come from the finder?
+              </td>
+              <td>Foundation for SUC-7/8; no system blocker asserted.</td>
+              <td>
+                Walk through spreadsheet-export reuse and uncertain CSV/XLSX
+                fulfillment using
+                <a href="../../test/server.test.ts">the analysis tests</a>.
+              </td>
+              <td>Open — learner unassessed</td>
+            </tr>
+            <tr>
+              <th scope="row">Storage and failure guarantees</th>
+              <td>
+                No explain-back recorded. What does rename provide, and what
+                remains untested?
+              </td>
+              <td>Foundation for SUC-6/7 and future scheduler/attempt work.</td>
+              <td>
+                Explain read/modify/write, missing-file handling, generic error
+                classification, and the absence of locking without claiming an
+                observed incident.
+              </td>
+              <td>Open — learner unassessed</td>
+            </tr>
+            <tr>
+              <th scope="row">Current versus planned workflow</th>
+              <td>
+                No explain-back recorded. Can the learner identify the first
+                unimplemented step after persisted analysis?
+              </td>
+              <td>Foundation for SUC-8–16 planning.</td>
+              <td>
+                Follow
+                <a href="04-ticket-dependencies.html">ticket dependencies</a>
+                and narrate proposal → approval → attempt → review → delivery,
+                labeling all future capabilities.
+              </td>
+              <td>Open — learner unassessed</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="maintenance-impact">Maintenance impact map</h2>
+      <div class="table-wrap">
+        <table>
+          <caption>
+            Close questions with evidence, then update affected explanations
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Trigger</th>
+              <th scope="col">Action in this page</th>
+              <th scope="col">Related updates</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A domain or integration contract is settled</td>
+              <td>
+                Record decision/source/date and revise the relevant P0/P1
+                status; do not silently erase the question.
+              </td>
+              <td>
+                <a href="07-glossary.html#domain-terms">Domain meanings</a>;
+                <a href="06-learning-roadmap.html#implementation"
+                  >implementation lessons</a
+                >; Decisions
+              </td>
+            </tr>
+            <tr>
+              <td>A capability ships with tests</td>
+              <td>
+                Replace “missing” only after checking implementation and
+                assertions; distinguish merge from deployment.
+              </td>
+              <td>
+                <a href="06-learning-roadmap.html#future-workflow"
+                  >Future-work labels</a
+                >;
+                <a href="07-glossary.html#components">component boundaries</a>;
+                Tickets and Overview
+              </td>
+            </tr>
+            <tr>
+              <td>README or parent issue is reconciled</td>
+              <td>
+                Update stale-evidence entries with exact verification date and
+                source.
+              </td>
+              <td>
+                Dashboard; Overview;
+                <a href="06-learning-roadmap.html#sources"
+                  >roadmap evidence limits</a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td>A learner demonstrates understanding</td>
+              <td>
+                Update only the corresponding learning question with the
+                explanation evidence.
+              </td>
+              <td>
+                <a href="06-learning-roadmap.html#explain-back-lessons"
+                  >Lesson checkpoints</a
+                >; leave system-gap statuses independent
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2 id="change-history">Change history</h2>
+      <p>
+        <time datetime="2026-10-09">2026-10-09</time>: created the prioritized
+        question register from b80de3d source inspection and coordinating-agent
+        evidence. All questions are open; no hypothetical failure was recorded
+        as a proven bug, and no learner understanding was asserted.
+      </p>
+      <h2 id="sources">Sources and scope</h2>
+      <p>
+        <a href="../../src/workflow.ts">workflow.ts</a>,
+        <a href="../../src/server.ts">server.ts</a>,
+        <a href="../../src/start.ts">start.ts</a>,
+        <a href="../../test/server.test.ts">server.test.ts</a>,
+        <a href="../../README.md">repository README</a>,
+        <a href="../adr/0001-persistent-product-profile.md">ADR 0001</a>,
+        <a href="../adr/0002-persist-evidence-backed-candidate-analysis.md"
+          >ADR 0002</a
+        >, <a href="../../published-tickets.md">published tickets</a>, and
+        <a href="../../ticket-breakdown-draft.md">planning draft</a>. Live
+        Linear descriptions and statuses were read during discovery, and the
+        existing checks passed locally. No application code was changed.
+      </p>
+    </main>
+    <footer>
+      <p>
+        <a href="06-learning-roadmap.html">Learning roadmap</a> ·
+        <a href="07-glossary.html">Glossary</a> ·
+        <a href="README.md">Dashboard</a>
+      </p>
+    </footer>
+  </body>
+</html>
