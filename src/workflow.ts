@@ -1,5 +1,6 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 export type RepositoryContext = {
   provider?: string;
@@ -51,7 +52,6 @@ export type Readiness = {
   missingBuild: string[];
 };
 
-type StoredWorkflow = { products: Product[]; feedback: Feedback[] };
 type Requirement = {
   label: string;
   isSatisfied: (profile: ProductProfile) => boolean;
@@ -136,14 +136,34 @@ export class WorkflowError extends Error {
 }
 
 export class Workflow {
-  readonly #filePath: string;
+  readonly #database: DatabaseSync;
   constructor(dataDirectory: string) {
-    this.#filePath = join(dataDirectory, "workflow.json");
+    mkdirSync(dataDirectory, { recursive: true });
+    this.#database = new DatabaseSync(join(dataDirectory, "workflow.sqlite"));
+    this.#database.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
+    this.#database.exec(`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        profile_json TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE IF NOT EXISTS feedback (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL REFERENCES products(id),
+        ordinal INTEGER NOT NULL CHECK (ordinal > 0),
+        customer_id TEXT NOT NULL,
+        original_text TEXT NOT NULL,
+        source_reference TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        UNIQUE (product_id, ordinal)
+      ) STRICT;
+    `);
   }
 
   registerProduct(
     input: { id: string; name: string; profile: ProductProfile },
-    ownerId: string,
+    ownerId: string
   ): { product: Product; readiness: Readiness } {
     requireText(input.id, "product ID");
     requireText(input.name, "product name");
@@ -152,48 +172,60 @@ export class Workflow {
     if (!hasText(input.profile.feedbackIntake))
       throw new WorkflowError(
         "A feedback intake is required to register a product.",
-        400,
+        400
       );
-    const data = this.read();
-    if (data.products.some((product) => product.id === input.id))
-      throw new WorkflowError(
-        `Product '${input.id}' is already registered.`,
-        409,
-      );
-    const product: Product = {
-      id: input.id,
-      name: input.name,
-      ownerId,
-      profile: input.profile,
-    };
-    data.products.push(product);
-    this.write(data);
-    return { product, readiness: this.readiness(product) };
+    return this.transaction(() => {
+      if (this.findProduct(input.id) !== undefined)
+        throw new WorkflowError(
+          `Product '${input.id}' is already registered.`,
+          409
+        );
+      const product: Product = {
+        id: input.id,
+        name: input.name,
+        ownerId,
+        profile: input.profile,
+      };
+      this.#database
+        .prepare(
+          "INSERT INTO products (id, name, owner_id, profile_json) VALUES (?, ?, ?, ?)"
+        )
+        .run(
+          product.id,
+          product.name,
+          product.ownerId,
+          JSON.stringify(product.profile)
+        );
+      return { product, readiness: this.readiness(product) };
+    });
   }
 
   updateProductProfile(
     productId: string,
     patch: ProductProfile,
-    ownerId: string,
+    ownerId: string
   ): { product: Product; readiness: Readiness } {
     validateProfile(patch);
     if (Object.keys(patch).length === 0)
       throw new WorkflowError(
         "At least one product profile field is required.",
-        400,
+        400
       );
-    const data = this.read();
-    const product = this.productForOwner(productId, ownerId, data);
-    product.profile = mergeProfile(product.profile, patch);
-    validateProfile(product.profile);
-    this.write(data);
-    return { product, readiness: this.readiness(product) };
+    return this.transaction(() => {
+      const product = this.productForOwner(productId, ownerId);
+      product.profile = mergeProfile(product.profile, patch);
+      validateProfile(product.profile);
+      this.#database
+        .prepare("UPDATE products SET profile_json = ? WHERE id = ?")
+        .run(JSON.stringify(product.profile), product.id);
+      return { product, readiness: this.readiness(product) };
+    });
   }
 
   submitFeedback(
     productId: string,
     input: Omit<Feedback, "id" | "productId">,
-    ownerId: string,
+    ownerId: string
   ): Feedback {
     requireText(productId, "product ID");
     requireText(input.customerId, "customer ID");
@@ -205,45 +237,65 @@ export class Workflow {
       throw new WorkflowError("Feedback date must be an ISO-8601 date.", 400);
     rejectCredentials(input.originalText, "feedback");
     requireCredentialFreeSource(input.sourceReference);
-    const data = this.read();
-    this.productForOwner(productId, ownerId, data);
-    const feedback: Feedback = {
-      id: `${productId}-${data.feedback.filter((item) => item.productId === productId).length + 1}`,
-      productId,
-      ...input,
-    };
-    data.feedback.push(feedback);
-    this.write(data);
-    return feedback;
+    return this.transaction(() => {
+      this.productForOwner(productId, ownerId);
+      const row = this.#database
+        .prepare(
+          "SELECT COALESCE(MAX(ordinal), 0) AS latest_ordinal FROM feedback WHERE product_id = ?"
+        )
+        .get(productId) as { latest_ordinal: number | bigint };
+      const ordinal = Number(row.latest_ordinal) + 1;
+      const feedback: Feedback = {
+        id: `${productId}-${ordinal}`,
+        productId,
+        ...input,
+      };
+      this.#database
+        .prepare(
+          `INSERT INTO feedback
+            (id, product_id, ordinal, customer_id, original_text, source_reference, received_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          feedback.id,
+          feedback.productId,
+          ordinal,
+          feedback.customerId,
+          feedback.originalText,
+          feedback.sourceReference,
+          feedback.receivedAt
+        );
+      return feedback;
+    });
   }
 
   inspectProduct(
     productId: string,
-    ownerId: string,
+    ownerId: string
   ): { product: Product; readiness: Readiness; feedback: Feedback[] } {
-    const product = this.productForOwner(productId, ownerId, this.read());
+    const product = this.productForOwner(productId, ownerId);
     return {
       product,
       readiness: this.readiness(product),
-      feedback: this.read().feedback.filter(
-        (feedback) => feedback.productId === productId,
-      ),
+      feedback: this.#database
+        .prepare(
+          `SELECT id, product_id, customer_id, original_text, source_reference, received_at
+           FROM feedback WHERE product_id = ? ORDER BY ordinal`
+        )
+        .all(productId)
+        .map(asFeedback),
     };
   }
 
-  private productForOwner(
-    productId: string,
-    ownerId: string,
-    data: StoredWorkflow,
-  ): Product {
+  private productForOwner(productId: string, ownerId: string): Product {
     requireText(ownerId, "owner identity");
-    const product = data.products.find((item) => item.id === productId);
+    const product = this.findProduct(productId);
     if (product === undefined)
       throw new WorkflowError(`Product '${productId}' is not registered.`, 404);
     if (product.ownerId !== ownerId)
       throw new WorkflowError(
         `Owner '${ownerId}' is not authorized to access product '${productId}'.`,
-        403,
+        403
       );
     return product;
   }
@@ -251,11 +303,11 @@ export class Workflow {
   private readiness(product: Product): Readiness {
     const missingAnalysis = missingRequirements(
       product.profile,
-      analysisRequirements,
+      analysisRequirements
     );
     const missingBuildOnly = missingRequirements(
       product.profile,
-      buildOnlyRequirements,
+      buildOnlyRequirements
     );
     return {
       registered: true,
@@ -266,26 +318,59 @@ export class Workflow {
     };
   }
 
-  private read(): StoredWorkflow {
+  private findProduct(productId: string): Product | undefined {
+    const row = this.#database
+      .prepare(
+        "SELECT id, name, owner_id, profile_json FROM products WHERE id = ?"
+      )
+      .get(productId);
+    return row === undefined ? undefined : asProduct(row);
+  }
+
+  private transaction<Result>(operation: () => Result): Result {
+    this.#database.exec("BEGIN IMMEDIATE");
     try {
-      return JSON.parse(readFileSync(this.#filePath, "utf8")) as StoredWorkflow;
+      const result = operation();
+      this.#database.exec("COMMIT");
+      return result;
     } catch (error) {
-      if (isMissingFile(error)) return { products: [], feedback: [] };
+      this.#database.exec("ROLLBACK");
       throw error;
     }
   }
-
-  private write(data: StoredWorkflow): void {
-    mkdirSync(dirname(this.#filePath), { recursive: true });
-    const temporaryFile = `${this.#filePath}.tmp`;
-    writeFileSync(temporaryFile, `${JSON.stringify(data, null, 2)}\n`, "utf8");
-    renameSync(temporaryFile, this.#filePath);
-  }
 }
 
+function asProduct(row: Record<string, unknown>): Product {
+  return {
+    id: asStoredString(row.id, "product ID"),
+    name: asStoredString(row.name, "product name"),
+    ownerId: asStoredString(row.owner_id, "product owner"),
+    profile: JSON.parse(
+      asStoredString(row.profile_json, "product profile")
+    ) as ProductProfile,
+  };
+}
+function asFeedback(row: Record<string, unknown>): Feedback {
+  return {
+    id: asStoredString(row.id, "feedback ID"),
+    productId: asStoredString(row.product_id, "feedback product ID"),
+    customerId: asStoredString(row.customer_id, "feedback customer ID"),
+    originalText: asStoredString(row.original_text, "feedback text"),
+    sourceReference: asStoredString(
+      row.source_reference,
+      "feedback source reference"
+    ),
+    receivedAt: asStoredString(row.received_at, "feedback date"),
+  };
+}
+function asStoredString(value: unknown, label: string): string {
+  if (typeof value !== "string")
+    throw new Error(`Stored ${label} must be text.`);
+  return value;
+}
 function missingRequirements(
   profile: ProductProfile,
-  requirements: Requirement[],
+  requirements: Requirement[]
 ): string[] {
   return requirements
     .filter((requirement) => !requirement.isSatisfied(profile))
@@ -293,7 +378,7 @@ function missingRequirements(
 }
 function mergeProfile(
   current: ProductProfile,
-  patch: ProductProfile,
+  patch: ProductProfile
 ): ProductProfile {
   return {
     ...current,
@@ -322,7 +407,7 @@ function validateProfile(profile: ProductProfile): void {
   )
     throw new WorkflowError(
       "Repository URL must be credential-free HTTP(S).",
-      400,
+      400
     );
   if (
     profile.repository?.defaultBranch !== undefined &&
@@ -335,7 +420,7 @@ function validateProfile(profile: ProductProfile): void {
   )
     throw new WorkflowError(
       "Repository documentation references must be non-empty text.",
-      400,
+      400
     );
   for (const [label, value] of Object.entries(profile))
     if (
@@ -379,11 +464,11 @@ function validateProfile(profile: ProductProfile): void {
   )
     throw new WorkflowError(
       "Integrations must have credential-free HTTP(S) endpoints and declare runtime and spending-limit capabilities.",
-      400,
+      400
     );
 }
 function hasRepositoryIdentity(
-  repository: RepositoryContext | undefined,
+  repository: RepositoryContext | undefined
 ): boolean {
   return (
     hasText(repository?.provider) &&
@@ -401,7 +486,7 @@ function hasPositiveNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 function hasDeclaredLimitCapabilities(
-  value: unknown,
+  value: unknown
 ): value is Record<string, IntegrationReference> {
   return (
     isRecord(value) &&
@@ -413,7 +498,7 @@ function hasDeclaredLimitCapabilities(
         isCredentialFreeHttpUrl(integration.endpoint) &&
         hasTextList(integration.capabilities) &&
         integration.capabilities.includes("runtime-limit") &&
-        integration.capabilities.includes("spending-limit"),
+        integration.capabilities.includes("spending-limit")
     )
   );
 }
@@ -438,7 +523,7 @@ function isCredentialFreeHttpUrl(value: unknown): boolean {
       url.username === "" &&
       url.password === "" &&
       ![...url.searchParams.keys()].some((key) =>
-        credentialFieldPattern.test(key),
+        credentialFieldPattern.test(key)
       )
     );
   } catch {
@@ -453,7 +538,7 @@ function rejectCredentials(value: unknown, location: string): void {
     if (credentialValuePattern.test(value))
       throw new WorkflowError(
         `Credentials must stay outside ${location}.`,
-        400,
+        400
       );
     return;
   }
@@ -464,7 +549,7 @@ function rejectCredentials(value: unknown, location: string): void {
       if (credentialFieldPattern.test(key))
         throw new WorkflowError(
           `Credentials must stay outside ${location}.`,
-          400,
+          400
         );
       rejectCredentials(nested, location);
     });
@@ -473,7 +558,7 @@ function requireCredentialFreeSource(source: string): void {
   if (!sourceReferencePattern.test(source))
     throw new WorkflowError(
       "Feedback source must be a credential-free source reference.",
-      400,
+      400
     );
 }
 const credentialFieldPattern =

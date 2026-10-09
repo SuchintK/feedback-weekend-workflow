@@ -4,7 +4,7 @@ This is a learning companion to the reusable customer-feedback-to-weekend-build 
 
 Evidence baseline: **9 October 2026**, branch `feature/SUC-7-group-feedback`, commit `b80de3d0816df80869251b8550d1ccae07236eb4`. The checked-out branch contains setup/intake and candidate analysis. Live Linear: SUC-6 Done, SUC-7 In Progress, SUC-8–16 Backlog. Merge, deployment, and real pilot operation were not verified. All 11 child tickets were read in full, along with the parent, native relations, and comments (none returned). Two subagents inspected code/tests and local documentation/history.
 
-The system currently has one HTTP server, one workflow module, and a JSON state file. Its planned lifecycle is:
+The system currently has one HTTP server, one workflow module, and a local SQLite database. Its planned lifecycle is:
 
 `owned product profile → original feedback → interpreted candidates → demand-qualified proposal → version-specific approval → bounded build → review package → confirmed delivery → updated demand/inventory`
 
@@ -82,7 +82,7 @@ Creating a page does not demonstrate understanding. Progress changes only after 
 | Before SUC-8/9               | What defines a calendar week, threshold/window fields, tie-breaking, and goal/scope scoring?            | Reproducible demand evaluation needs explicit rules.                                                          |
 | Before trusting old analysis | What invalidates inventory/candidate comparisons when repository contents change at the same reference? | Current verification compares strings, not commits/content.                                                   |
 | Before SUC-10/11             | How are material ticket versions, approval evidence, and execution-time races represented?              | Approval must refer to the scope actually executed.                                                           |
-| Before SUC-11/13             | What durable coordination and runner capabilities enforce limits and prevent duplicate attempts?        | A JSON file rename and declared capabilities do not establish those guarantees.                               |
+| Before SUC-11/13             | What durable coordination and runner capabilities enforce limits and prevent duplicate attempts?        | Local SQLite and declared capabilities do not establish distributed-attempt guarantees.                       |
 | Before SUC-15                | How are verified delivery, partial fulfillment, and idempotent inventory updates represented?           | Review artifacts cannot safely retire demand.                                                                 |
 | Learning                     | Can you explain configuration versus evidence versus authority?                                         | Understanding this prevents several architecture misconceptions.                                              |
 

@@ -34,7 +34,7 @@
       </p>
       <p>
         The current application is one Node.js process with an HTTP adapter, one
-        workflow module, and one JSON state file. The planned architecture
+        workflow module, and one SQLite state file. The planned architecture
         extends that workflow with evaluation, approval, execution, scheduling,
         review, and delivery responsibilities. The specification does not
         require those responsibilities to become independently deployed
@@ -47,15 +47,15 @@ flowchart TD
   O["Authenticated owner / HTTP client"] --> H["server.ts: routes, JSON validation, authentication"]
   C["start.ts: environment and dependency wiring"] --> H
   H --> W["workflow.ts: ownership, readiness, feedback, inventory, candidates"]
-  W --> J[("workflow.json: products, feedback, candidates, verifications")]
+  W --> J[("workflow.sqlite: products and feedback")]
   W --> F["ExistingTicketFinder interface"]
   F --> N["Startup default: returns undefined"]
   T["HTTP tests with controlled token map and ticket finder"] --> H
 </pre>
         <figcaption>
           The owner calls the HTTP adapter. Workflow enforces rules and
-          reads/writes the state file. Ticket lookup is injectable, but standard
-          startup supplies no real external lookup.
+          reads/writes the SQLite database. Ticket lookup is injectable, but
+          standard startup supplies no real external lookup.
         </figcaption>
       </figure>
       <div class="table-wrap">
@@ -107,15 +107,14 @@ flowchart TD
               </td>
             </tr>
             <tr>
-              <td>JSON persistence</td>
+              <td>SQLite persistence</td>
               <td>
-                Retains context between requests. Reads a full snapshot; writes
-                a temporary file then renames it.
+                Retains context between requests with transactions and foreign
+                keys, without a database server.
               </td>
               <td>
-                <code>Workflow.read/write</code>. Four arrays in
-                <code>StoredWorkflow</code>. No database server, ORM, queue, or
-                migration framework in package configuration.
+                <code>Workflow</code> uses Node's built-in SQLite driver. No
+                database server, ORM, or queue is required.
               </td>
             </tr>
             <tr>
@@ -217,8 +216,7 @@ flowchart LR
         <figcaption>
           Product identity scopes every stored record. Candidates refer to
           feedback IDs, keeping interpretation separate from the customer's
-          original words. These are logical relationships in a JSON file, not
-          SQL tables.
+          original words. SQLite enforces the Product-to-Feedback relationship.
         </figcaption>
       </figure>
       <p>
@@ -382,8 +380,8 @@ flowchart TD
         </li>
         <li>
           <code>workflow.ts</code>: read types and requirements, then
-          <code>analyzeFeedback</code>, <code>productForOwner</code>,
-          <code>read/write</code>.
+          <code>analyzeFeedback</code>, <code>productForOwner</code>, SQLite
+          queries and transactions.
         </li>
         <li>
           <code>test/server.test.ts</code>: compare the grouping test's

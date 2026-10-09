@@ -158,38 +158,38 @@
         SUC-6, 7, 10, 11.
       </p>
       <h2 id="storage">
-        D4 · One Node.js process, native HTTP, JSON-file persistence
+        D4 · One Node.js process, native HTTP, SQLite local persistence
       </h2>
       <p>
         <strong>Problem:</strong> the implementation needs a running interface
-        and retained state. <strong>Observed approach:</strong> native
-        <code>node:http</code>, TypeScript run by Node, synchronous whole-file
-        JSON reads/writes, temporary file rename.
-        <strong>Status:</strong> current implementation; no accepted ADR
-        explains choosing this storage/runtime stack.
+        and retained state. <strong>Selected approach:</strong> native
+        <code>node:http</code>, TypeScript run by Node, and a local SQLite
+        database through Node's built-in driver. <strong>Status:</strong>
+        accepted for one workflow process on one host-local disk.
       </p>
       <p>
-        <strong>Why selected:</strong> not documented.
+        <strong>Documented rationale:</strong>
+        <a href="../adr/0002-sqlite-local-workflow-store.md">ADR 0002</a>
+        selects transactional local persistence without operating a database
+        server.
         <strong>Alternatives and trade-offs — mentor analysis:</strong> a web
         framework can supply routing/error conventions but adds dependencies;
         native HTTP keeps the present surface small while leaving those concerns
-        handwritten. SQLite could supply transactional local storage; PostgreSQL
-        could support coordinated writers and richer queries; either requires
-        schema/migration/operational decisions. JSON is directly inspectable and
-        has little setup, but blocks on full-file I/O and has no multi-process
-        transaction/locking contract.
+        handwritten. PostgreSQL could support coordinated distributed writers
+        and richer operations, but requires a server and deployment contract.
+        JSON is directly inspectable and has little setup, but blocks on
+        full-file I/O and has no transaction/locking contract.
       </p>
       <p>
-        <strong>Risks and limits:</strong> rename is not a concurrency or backup
-        design; identical temporary filenames can conflict between processes;
-        state has no explicit schema version or full runtime validation. These
-        motivate storage questions before durable approval/attempt coordination,
-        not an instruction to replace storage during this learning task.
+        <strong>Risks and limits:</strong> this is not a distributed-writer
+        design, and it does not add a backup or power-loss recovery protocol. A
+        later deployment with multiple application hosts or workers must make a
+        separate server-database decision before coordinating attempts.
       </p>
       <p>
         Sources: <a href="../../package.json">runtime/dependencies</a>,
         <a href="../../tsconfig.json">compiler settings</a>,
-        <a href="../../src/workflow.ts">read/write</a>. Relevant tickets: SUC-6,
+        <a href="../../src/workflow.ts">Workflow</a>. Relevant tickets: SUC-6,
         7, 10, 11, 13, 15.
       </p>
       <h2 id="integration">

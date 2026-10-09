@@ -8,6 +8,8 @@ The service verifies the caller's bearer token against the server-side
 token-to-owner mapping, for example `WORKFLOW_AUTH_TOKENS='{"opaque-token":"owner-atlas"}' npm start`.
 Credentials are never accepted in product profiles, feedback, or tickets. Product records retain
 repository context, goals, inventory, workflow instructions, operational limits, and readiness status.
+State is stored in `workflow.sqlite` under `WORKFLOW_DATA_DIRECTORY` (default `.data`). The
+supported deployment model is one workflow process on one host-local disk.
 
 The service currently provides these JSON routes:
 
