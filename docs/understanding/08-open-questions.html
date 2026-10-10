@@ -278,11 +278,9 @@
                 Storage: what concurrency and recovery guarantees are required?
               </th>
               <td>
-                <a href="../../src/workflow.ts">read/write</a> use synchronous
-                whole-file JSON and a fixed .tmp path. ENOENT means empty state.
-                There is no multi-process lock, schema validation/version,
-                backup, migration, or fsync protocol.
-                <code>inspectProduct</code> reads twice.
+                <a href="../../src/workflow.ts">Workflow</a> stores Product and
+                Feedback records in local SQLite. The accepted process model is
+                one workflow process on one host-local disk.
               </td>
               <td>
                 Relevant to durable SUC-6/7 data and future attempt, scheduler,
@@ -291,16 +289,18 @@
                 <a href="https://linear.app/suchint/issue/SUC-13">SUC-13</a>,
                 <a href="https://linear.app/suchint/issue/SUC-14">SUC-14</a>,
                 <a href="https://linear.app/suchint/issue/SUC-15">SUC-15</a>.
-                Concurrent-writer and crash scenarios are untested; no loss
-                incident was observed.
+                SQLite transactions, restart persistence, duplicate
+                registration, and owner isolation are covered. Backup,
+                power-loss recovery, and coordinated distributed writers remain
+                outside the selected operating model.
               </td>
               <td>
-                State the supported process model and durability target.
-                Evaluate locking or transactional storage against it, define
-                malformed-data recovery and migration, then test restart,
-                interrupted writes, and concurrent updates where supported.
+                Revisit the storage ADR before introducing multiple application
+                hosts or distributed workers. Define backup and power-loss
+                recovery requirements before treating the local file as an
+                operational database service.
               </td>
-              <td>Open — operating guarantee</td>
+              <td>Accepted — local-process contract</td>
             </tr>
             <tr id="p1-errors">
               <th scope="row">
@@ -583,7 +583,7 @@
               <td>
                 <a href="../../README.md">README</a> says records retain
                 readiness status.
-                <a href="../../src/workflow.ts">StoredWorkflow and readiness</a>
+                <a href="../../src/workflow.ts">Workflow and readiness</a>
                 show that readiness is computed. The verification gate, manual
                 grouping, absent real finder, and absence of a
                 candidate-inspection route need clear operational explanation.

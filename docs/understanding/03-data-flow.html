@@ -49,7 +49,7 @@
         name, profile; owner identity comes from the server-side token map.
         <strong>Transformation:</strong> request shape checks, credential
         rejection, profile merge on update, readiness calculation.
-        <strong>Persistence:</strong> Product in <code>workflow.json</code>.
+        <strong>Persistence:</strong> Product in SQLite.
         <strong>Response:</strong> 201 registration or 200 update, with product
         and missing readiness fields.
       </p>
@@ -59,19 +59,19 @@ sequenceDiagram
   actor O as Owner
   participant H as HTTP adapter
   participant W as Workflow
-  participant J as JSON state file
+  participant J as SQLite database
   O->>H: POST /products with bearer token and profile
   H->>H: Resolve token to trusted owner, parse JSON
   H->>W: registerProduct(input, ownerId)
   W->>W: Validate profile and required intake
-  W->>J: Read snapshot (missing file means empty state)
+  W->>J: Begin transaction
   W->>W: Reject duplicate ID, add owner-bound Product
-  W->>J: Write temporary snapshot, rename to workflow.json
+  W->>J: Insert Product and commit
   W-->>H: product and computed readiness
   H-->>O: 201 JSON
   O->>H: PATCH /products/id with more configuration
   H->>W: updateProductProfile(id, patch, ownerId)
-  W->>J: Read, check owner, merge, validate, write
+  W->>J: Read, check owner, update, and commit
   W-->>O: 200 product and new readiness
 </pre>
         <figcaption>
@@ -88,8 +88,7 @@ sequenceDiagram
         currently become 400 at the HTTP adapter. Sources:
         <a href="../../src/server.ts">registration/update routes</a>,
         <a href="../../src/workflow.ts"
-          >registerProduct, updateProductProfile, mergeProfile, readiness,
-          read/write</a
+          >registerProduct, updateProductProfile, mergeProfile, readiness</a
         >; <a href="tickets/SUC-6.html">SUC-6</a>.
       </p>
       <h2 id="feedback">
@@ -101,7 +100,7 @@ sequenceDiagram
         credential-free source reference, received date. The product ID is taken
         from the route. <strong>Transformation:</strong> validation and
         generated feedback ID; original text is preserved if accepted.
-        <strong>Persistence:</strong> Feedback array.
+        <strong>Persistence:</strong> Feedback row.
         <strong>Response:</strong> 201 feedback object, then 200 inspection
         result on GET.
       </p>
@@ -111,14 +110,14 @@ sequenceDiagram
   actor O as Owner
   participant H as HTTP adapter
   participant W as Workflow
-  participant J as JSON state file
+  participant J as SQLite database
   O->>H: POST /products/atlas/feedback with structured message
   H->>H: Authenticate and validate payload shape
   H->>W: submitFeedback(atlas, input, ownerId)
   W->>W: Validate text/date/source, reject credential patterns
-  W->>J: Read snapshot
+  W->>J: Begin transaction and read product
   W->>W: Check registered owner, generate per-product ID
-  W->>J: Append original evidence, write snapshot
+  W->>J: Insert original evidence and commit
   W-->>O: 201 feedback with id atlas-1
   O->>H: GET /products/atlas
   H->>W: inspectProduct(atlas, ownerId)
@@ -174,7 +173,7 @@ sequenceDiagram
   actor O as Owner
   participant H as HTTP adapter
   participant W as Workflow
-  participant J as JSON state file
+  participant J as SQLite database
   participant T as Injected ticket finder
   O->>H: POST /products/id/inventory-verification with {}
   H->>W: verifyInventory(id, ownerId)

@@ -142,7 +142,7 @@
         <p>
           Linear says Done. The branch provides authenticated registration,
           profile updates, feedback submission, and inspection over HTTP.
-          <code>Workflow</code> persists products and feedback in a JSON store;
+          <code>Workflow</code> persists products and feedback in SQLite;
           inspection returns readiness and precise missing-field lists.
           Authentication uses a server-side bearer-token mapping. Historical
           changes replaced the one-request CLI in <code>99c9018</code> and
@@ -211,8 +211,7 @@
           <strong>Implemented durable state:</strong> a product has stable ID,
           name, authenticated owner, and profile. Feedback has ID, product ID,
           customer ID, original text, source reference, and received date. The
-          store is local JSON; that storage mechanism is an implementation
-          detail rather than the ADR’s mandated database choice.
+          store is local SQLite; the database selection is recorded in ADR 0002.
         </p>
         <p>
           <strong>Readiness:</strong> registration requires identity, owner, and
@@ -275,9 +274,9 @@ sequenceDiagram
           A one-request CLI is convenient for development but loses the
           persistent owner interface selected by ADR 0001. A feedback-only
           namespace is smaller but forces later steps to rediscover repository
-          context and constraints. A database could replace the JSON store
-          later; nothing in the accepted ADR settles concurrency, migration, or
-          deployment topology.
+          context and constraints. SQLite supplies local transactions, while
+          distributed-writer and deployment topology remain outside the accepted
+          operating model.
         </p>
       </section>
       <section>

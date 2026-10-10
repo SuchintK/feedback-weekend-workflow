@@ -544,21 +544,21 @@
                 storage.
               </td>
               <td>
-                <a href="../../src/workflow.ts">write</a> serializes the whole
-                StoredWorkflow as JSON. Restart behavior is intended by this
-                design but not tested in the current suite.
+                <a href="../../src/workflow.ts">Workflow</a> stores product and
+                feedback records in SQLite. Restart behavior is covered by the
+                workflow persistence tests.
               </td>
             </tr>
             <tr>
-              <th scope="row">Atomic replacement</th>
+              <th scope="row">Transactions</th>
               <td>
-                Replacing a visible file through a rename after preparing its
-                replacement.
+                Grouping related database changes so they all commit or all roll
+                back.
               </td>
               <td>
-                <code>workflow.json.tmp</code> is written then renamed. This
-                pattern does not by itself provide fsync-based durability,
-                reader transactions, or multiple-writer coordination.
+                SQLite commits product and feedback changes atomically. Backup,
+                power-loss recovery, and distributed-writer coordination are
+                outside the supported local-process model.
               </td>
             </tr>
             <tr>
@@ -696,25 +696,21 @@
                 isMatchDisposition and WorkflowError.
               </td>
               <td>
-                Candidate, CandidateMatch, InventoryVerification, and
-                StoredWorkflow are internal types. Readiness is computed rather
-                than persisted.
+                Product and Feedback are durable records. Readiness is computed
+                rather than persisted.
               </td>
             </tr>
             <tr>
               <th scope="row">
-                <a href="../../src/workflow.ts"
-                  >StoredWorkflow and file helpers</a
-                >
+                <a href="../../src/workflow.ts">Workflow storage helpers</a>
               </th>
               <td>
-                Four collections: products, feedback, candidates,
-                inventoryVerifications. read defaults missing collections; write
-                replaces the complete file.
+                Products and Feedback are stored in SQLite tables. The workflow
+                reads only the records needed for the requested operation.
               </td>
               <td>
-                No schema version, stored-shape validation, migration runner,
-                locking, backup policy, or fsync protocol is implemented.
+                No backup policy, power-loss recovery protocol, or
+                distributed-writer contract is implemented.
               </td>
             </tr>
             <tr>

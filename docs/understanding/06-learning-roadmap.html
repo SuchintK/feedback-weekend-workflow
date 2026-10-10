@@ -283,13 +283,13 @@
               </td>
             </tr>
             <tr>
-              <td>File persistence and atomic replacement</td>
+              <td>SQLite persistence and transactions</td>
               <td>
                 Durable state exists, but its guarantees must be stated
                 precisely.
               </td>
               <td>
-                <a href="../../src/workflow.ts">StoredWorkflow, read, write</a>;
+                <a href="../../src/workflow.ts">Workflow transactions</a>;
                 <a href="05-technical-decisions.html">technical decisions</a>
               </td>
               <td>
@@ -298,9 +298,9 @@
                 relevant to SUC-11/13/14/15
               </td>
               <td>
-                How workflow.json.tmp becomes workflow.json, what ENOENT means,
-                and why rename alone does not establish locking or crash
-                durability.
+                How SQLite transactions protect each workflow operation, and
+                which backup, crash-recovery, and distributed-writer guarantees
+                remain outside the local-process contract.
               </td>
             </tr>
           </tbody>
